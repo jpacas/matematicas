@@ -1,0 +1,237 @@
+/* lessons.js — Calculus II lesson catalog */
+
+const TOPICS = [
+  {
+    id: "1", icon: "∫", label: "Técnicas de Integración",
+    lessons: [
+      { id:"1.1.1",  name:"Integrating Algebraic Functions Using Substitution" },
+      { id:"1.1.2",  name:"Integrating Linear Rational Functions Using Substitution" },
+      { id:"1.1.3",  name:"Integration Using Substitution" },
+      { id:"1.1.4",  name:"Calculating Definite Integrals Using Substitution" },
+      { id:"1.1.5",  name:"Further Integration of Algebraic Functions Using Substitution" },
+      { id:"1.1.6",  name:"Integrating Exponential Functions Using Linear Substitution" },
+      { id:"1.1.7",  name:"Integrating Exponential Functions Using Substitution" },
+      { id:"1.1.8",  name:"Integrating Trigonometric Functions Using Substitution" },
+      { id:"1.1.9",  name:"Integrating Logarithmic Functions Using Substitution" },
+      { id:"1.1.10", name:"Integration by Substitution With Inverse Trigonometric Functions" },
+      { id:"1.1.11", name:"Integrating Hyperbolic Functions Using Substitution" },
+      { id:"1.1.12", name:"Integration by Substitution With Inverse Hyperbolic Functions" },
+      { id:"1.2.1",  name:"Integrating Functions Using Polynomial Division" },
+      { id:"1.2.2",  name:"Integrating Functions by Completing the Square" },
+      { id:"1.3.1",  name:"Integration Using Basic Trigonometric Identities" },
+      { id:"1.3.2",  name:"Integration Using the Pythagorean Identities" },
+      { id:"1.3.3",  name:"Integration Using the Double-Angle Formulas" },
+      { id:"1.3.4",  name:"Integrating Products of Trigonometric Functions" },
+      { id:"1.4.1",  name:"Integration Using Basic Hyperbolic Identities" },
+      { id:"1.4.2",  name:"Integration Using the Hyperbolic Pythagorean Identities" },
+      { id:"1.5.1",  name:"Introduction to Integration by Parts" },
+      { id:"1.5.2",  name:"Integration by Parts With Logarithms" },
+      { id:"1.5.3",  name:"Applying Integration by Parts Twice" },
+      { id:"1.5.4",  name:"The Tabular Method of Integration by Parts" },
+      { id:"1.5.5",  name:"Integration by Parts in Cyclic Cases" },
+      { id:"1.6.1",  name:"Expressing Rational Functions as Sums of Partial Fractions" },
+      { id:"1.6.2",  name:"Partial Fractions With Repeated Factors" },
+      { id:"1.6.3",  name:"Partial Fractions With Irreducible Quadratic Factors" },
+      { id:"1.6.4",  name:"Integrating Rational Functions Using Partial Fractions" },
+      { id:"1.6.5",  name:"Integrating Rational Functions With Repeated Factors" },
+      { id:"1.6.6",  name:"Integrating Rational Functions With Irreducible Quadratic Factors" },
+      { id:"1.7.1",  name:"Improper Integrals" },
+      { id:"1.7.2",  name:"Improper Integrals Involving Exponential Functions" },
+      { id:"1.7.3",  name:"Improper Integrals Involving Arctangent" },
+      { id:"1.7.4",  name:"Improper Integrals Over the Real Line" },
+      { id:"1.7.5",  name:"Improper Integrals of the Second Kind" },
+      { id:"1.7.6",  name:"Improper Integrals: Discontinuities at Interior Points" },
+    ]
+  },
+  {
+    id: "2", icon: "⊃", label: "Aplicaciones de la Integración",
+    lessons: [
+      { id:"2.8.1",  name:"Integrating Rates of Change" },
+      { id:"2.8.2",  name:"Integrating Density Functions" },
+      { id:"2.8.3",  name:"The Average Value of a Function" },
+      { id:"2.8.4",  name:"The Area Between Curves as Functions of X" },
+      { id:"2.8.5",  name:"The Area Between Curves as Functions of Y" },
+      { id:"2.8.6",  name:"Areas Between Curves Intersecting at More Than Two Points" },
+      { id:"2.8.7",  name:"The Arc Length of a Planar Curve" },
+      { id:"2.9.1",  name:"Volumes of Solids with Square Cross Sections" },
+      { id:"2.9.2",  name:"Volumes of Solids with Rectangular Cross Sections" },
+      { id:"2.9.3",  name:"Volumes of Solids with Triangular Cross Sections" },
+      { id:"2.9.4",  name:"Volumes of Solids with Circular Cross Sections" },
+      { id:"2.10.1", name:"Volumes of Revolution: Disc Method — Coordinate Axes" },
+      { id:"2.10.2", name:"Volumes of Revolution: Disc Method — Other Axes" },
+      { id:"2.10.3", name:"Volumes of Revolution: Washer Method — Coordinate Axes" },
+      { id:"2.10.4", name:"Volumes of Revolution: Washer Method — Other Axes" },
+      { id:"2.10.5", name:"The Shell Method: Rotating About the X-Axis" },
+      { id:"2.10.6", name:"The Shell Method: Region Between Two Curves" },
+      { id:"2.10.7", name:"The Shell Method: Rotation About the Y-Axis" },
+      { id:"2.11.1", name:"Surface Areas of Revolution: About the X-Axis" },
+      { id:"2.11.2", name:"Surface Areas of Revolution: About the Y-Axis" },
+      { id:"2.12.1", name:"Calculating Velocity Using Integration" },
+      { id:"2.12.2", name:"Determining Characteristics of Moving Objects Using Integration" },
+      { id:"2.12.5", name:"Calculating the Total Distance Traveled by a Particle" },
+    ]
+  },
+  {
+    id: "3", icon: "θ", label: "Paramétrico y Polar",
+    lessons: [
+      { id:"3.13.1",  name:"Differentiating Parametric Curves" },
+      { id:"3.13.2",  name:"Tangent and Normal Lines with Parametric Equations" },
+      { id:"3.13.3",  name:"Second Derivatives of Parametric Equations" },
+      { id:"3.13.4",  name:"The Arc Length of a Parametric Curve" },
+      { id:"3.14.1",  name:"Defining Vector-Valued Functions" },
+      { id:"3.14.2",  name:"Differentiating Vector-Valued Functions" },
+      { id:"3.14.3",  name:"Integrating Vector-Valued Functions" },
+      { id:"3.16.1",  name:"Differentiating Curves Given in Polar Form" },
+      { id:"3.16.3",  name:"Horizontal and Vertical Tangents to Polar Curves" },
+      { id:"3.16.6",  name:"Finding the Area of a Polar Region" },
+      { id:"3.16.8",  name:"The Total Area Bounded by a Single Polar Curve" },
+      { id:"3.16.9",  name:"The Area Bounded by Two Polar Curves" },
+      { id:"3.16.10", name:"The Arc Length of a Polar Curve" },
+    ]
+  },
+  {
+    id: "4", icon: "Σ", label: "Sucesiones y Series",
+    lessons: [
+      { id:"4.17.1",  name:"Limits of Sequences" },
+      { id:"4.17.2",  name:"Convergence of Geometric Sequences" },
+      { id:"4.17.4",  name:"Limits of Sequences With Factorials" },
+      { id:"4.17.5",  name:"Limits of Sequences Using Relative Magnitudes" },
+      { id:"4.18.1",  name:"Monotonic Sequences" },
+      { id:"4.18.2",  name:"Identifying Monotonic Sequences Using Differentiation" },
+      { id:"4.19.1",  name:"Infinite Series and Partial Sums" },
+      { id:"4.19.2",  name:"Convergent and Divergent Infinite Series" },
+      { id:"4.19.3",  name:"Properties of Infinite Series" },
+      { id:"4.19.5",  name:"Telescoping Series" },
+      { id:"4.20.1",  name:"Finding the Sum of an Infinite Geometric Series" },
+      { id:"4.20.4",  name:"Convergence of Geometric Series" },
+      { id:"4.20.5",  name:"Repeating Decimals as Infinite Geometric Series" },
+      { id:"4.21.1",  name:"The Nth Term Test for Divergence" },
+      { id:"4.21.2",  name:"The Integral Test" },
+      { id:"4.21.3",  name:"The Remainder Estimate for the Integral Test" },
+      { id:"4.21.4",  name:"Harmonic Series and p-Series" },
+      { id:"4.21.5",  name:"The Comparison Test" },
+      { id:"4.21.6",  name:"The Limit Comparison Test" },
+      { id:"4.21.7",  name:"The Alternating Series Test" },
+      { id:"4.21.8",  name:"The Ratio Test" },
+      { id:"4.21.9",  name:"The Root Test" },
+      { id:"4.21.10", name:"Absolute and Conditional Convergence" },
+      { id:"4.21.11", name:"The Alternating Series Error Bound" },
+      { id:"4.21.13", name:"Selecting Procedures for Analyzing Infinite Series" },
+      { id:"4.22.1",  name:"Second-Degree Taylor Polynomials" },
+      { id:"4.22.3",  name:"Third-Degree Taylor Polynomials" },
+      { id:"4.22.4",  name:"Higher-Degree Taylor Polynomials" },
+      { id:"4.22.5",  name:"The Lagrange Error Bound" },
+      { id:"4.23.1",  name:"Radius of Convergence of Power Series" },
+      { id:"4.23.3",  name:"Maclaurin Series" },
+      { id:"4.23.4",  name:"Taylor Series" },
+      { id:"4.23.5",  name:"Representing Functions as Power Series" },
+      { id:"4.23.7",  name:"Standard Maclaurin Series for Trigonometric Functions" },
+      { id:"4.23.8",  name:"Differentiating Taylor Series" },
+      { id:"4.23.9",  name:"Approximating Integrals Using Taylor Series" },
+    ]
+  },
+  {
+    id: "5", icon: "dy", label: "Ecuaciones Diferenciales",
+    lessons: [
+      { id:"5.24.1", name:"Introduction to Differential Equations" },
+      { id:"5.24.2", name:"Verifying Solutions of Differential Equations" },
+      { id:"5.24.3", name:"Solving First-Order ODEs Using Direct Integration" },
+      { id:"5.24.4", name:"Solving First-Order ODEs Using Separation of Variables" },
+      { id:"5.24.5", name:"Solving First-Order IVPs Using Separation of Variables" },
+      { id:"5.24.6", name:"Modeling With First-Order ODEs" },
+      { id:"5.25.1", name:"Qualitative Analysis of First-Order ODEs" },
+      { id:"5.25.2", name:"Equilibrium Solutions of First-Order ODEs" },
+      { id:"5.26.1", name:"Exponential Growth and Decay Models" },
+      { id:"5.26.2", name:"Exponential Growth and Decay: Calculating Unknown Times" },
+      { id:"5.26.3", name:"Exponential Growth and Decay: Half-Life Problems" },
+      { id:"5.27.1", name:"Logistic Growth Models" },
+      { id:"5.27.2", name:"Qualitative Analysis of the Logistic Growth Equation" },
+      { id:"5.27.3", name:"Solving the Logistic Growth Equation" },
+      { id:"5.28.1", name:"Slope Fields for Directly Integrable ODEs" },
+      { id:"5.28.2", name:"Slope Fields for Autonomous ODEs" },
+      { id:"5.28.3", name:"Slope Fields for Nonautonomous ODEs" },
+      { id:"5.29.1", name:"Euler's Method: Calculating One Step" },
+    ]
+  }
+];
+
+/* Pre-generated demo lesson (Integration by Parts) */
+const PRELOADED = {
+  "1.5.1": {
+    objective: "Aprender a calcular integrales de <strong>productos de funciones</strong> usando la fórmula $\\int u\\,dv = uv - \\int v\\,du$, y desarrollar intuición para elegir $u$ y $dv$ correctamente.",
+    concept: [
+      "Imagina que tienes que empacar una mudanza con muebles grandes y cajas pequeñas. Si tratas de moverlo todo de golpe, es imposible. La estrategia inteligente: mueves el mueble primero, y ese movimiento te abre espacio para las cajas. Integración por partes hace lo mismo — transfiere la complejidad de integrar de una función a la otra hasta que el problema se vuelve manejable.",
+      "Cuando una integral tiene la forma de un <em>producto de dos funciones</em> — como $xe^x$, $x\\ln x$ o $x\\sin x$ — la sustitución no funciona. Necesitamos una técnica que separe las responsabilidades. La idea surge directamente de la <strong>regla del producto para derivadas</strong>: si $(uv)' = u'v + uv'$, integrando obtenemos $uv = \\int u'v\\,dx + \\int uv'\\,dx$, que reorganizado nos da la fórmula de integración por partes."
+    ],
+    analogy: "La regla LIATE te dice qué función llamar $u$: Logarítmicas → Inversas trig → Algebraicas → Trigonométricas → Exponenciales. La que esté más a la izquierda en esta lista va a ser $u$.",
+    formulas: [
+      { label: "Fórmula Principal", math: "$$\\int u\\,dv = uv - \\int v\\,du$$", name: "Integración por Partes" },
+      { label: "Origen — Regla del producto", math: "$$\\frac{d}{dx}[uv] = u\\frac{dv}{dx} + v\\frac{du}{dx} \\implies \\int u\\,dv + \\int v\\,du = uv$$", name: "" },
+    ],
+    definitions: [
+      { term: "Integración por partes", def: "Técnica para integrar productos de funciones, derivada de la regla del producto: $\\int u\\,dv = uv - \\int v\\,du$." },
+      { term: "LIATE", def: "Regla mnemotécnica para elegir $u$: Logarítmicas, Inversas trigonométricas, Algebraicas, Trigonométricas, Exponenciales." },
+      { term: "Caso cíclico", def: "Situación en que la integral original reaparece en el resultado (ej. $\\int e^x\\cos x\\,dx$), permitiendo despejarla algebraicamente." },
+    ],
+    examples: [
+      {
+        label: "Ejemplo 1", diff: 1, diffLabel: "Básico",
+        problem: "Calcular $\\displaystyle\\int x\\,e^x\\,dx$",
+        steps: [
+          "Elegir por LIATE: $u = x$ (algebraica), $dv = e^x\\,dx$ (exponencial).",
+          "Calcular: $du = dx$ y $v = \\int e^x\\,dx = e^x$.",
+          "Aplicar la fórmula: $\\int x\\,e^x\\,dx = x\\cdot e^x - \\int e^x\\,dx = xe^x - e^x + C$.",
+          "Resultado: $\\displaystyle\\int x\\,e^x\\,dx = (x-1)e^x + C$",
+        ],
+        isResult: [false, false, false, true]
+      },
+      {
+        label: "Ejemplo 2", diff: 2, diffLabel: "Intermedio",
+        problem: "Calcular $\\displaystyle\\int x\\ln(x)\\,dx$",
+        steps: [
+          "Por LIATE: $u = \\ln x$ (logarítmica tiene prioridad), $dv = x\\,dx$.",
+          "Calcular: $du = \\frac{1}{x}\\,dx$ y $v = \\frac{x^2}{2}$.",
+          "Aplicar: $\\int x\\ln x\\,dx = \\frac{x^2}{2}\\ln x - \\int \\frac{x^2}{2}\\cdot\\frac{1}{x}\\,dx = \\frac{x^2}{2}\\ln x - \\frac{1}{2}\\int x\\,dx$.",
+          "Resultado: $\\displaystyle\\int x\\ln x\\,dx = \\frac{x^2}{2}\\ln x - \\frac{x^2}{4} + C$",
+        ],
+        isResult: [false, false, false, true]
+      },
+      {
+        label: "Ejemplo 3", diff: 3, diffLabel: "Avanzado",
+        problem: "Calcular $\\displaystyle\\int x^2 e^x\\,dx$",
+        steps: [
+          "Primera aplicación: $u = x^2$, $dv = e^x\\,dx$ → $du = 2x\\,dx$, $v = e^x$.",
+          "Obtenemos: $x^2 e^x - 2\\int x\\,e^x\\,dx$.",
+          "El segundo término es el Ejemplo 1: $\\int xe^x\\,dx = (x-1)e^x + C$.",
+          "Resultado: $\\displaystyle\\int x^2 e^x\\,dx = (x^2 - 2x + 2)e^x + C$",
+        ],
+        isResult: [false, false, false, true]
+      },
+      {
+        label: "Ejemplo 4", diff: 4, diffLabel: "Cíclico",
+        problem: "Calcular $\\displaystyle\\int e^x\\cos x\\,dx$",
+        steps: [
+          "Aplicar dos veces: $u = \\cos x$, $dv = e^x\\,dx$ → $\\int e^x\\cos x = e^x\\cos x + \\int e^x\\sin x\\,dx$.",
+          "Segunda aplicación sobre $\\int e^x\\sin x\\,dx$: resulta en $e^x\\sin x - \\int e^x\\cos x\\,dx$.",
+          "La integral original aparece en ambos lados: $I = e^x\\cos x + e^x\\sin x - I$.",
+          "Resultado: $\\displaystyle\\int e^x\\cos x\\,dx = \\frac{e^x(\\cos x + \\sin x)}{2} + C$",
+        ],
+        isResult: [false, false, false, true]
+      },
+    ],
+    exercises: [
+      { q: "$\\displaystyle\\int x\\sin(x)\\,dx$",        a: "$-x\\cos x + \\sin x + C$" },
+      { q: "$\\displaystyle\\int \\ln(x)\\,dx$",          a: "$x\\ln x - x + C$" },
+      { q: "$\\displaystyle\\int x^2\\sin(x)\\,dx$",      a: "$-x^2\\cos x + 2x\\sin x + 2\\cos x + C$" },
+      { q: "$\\displaystyle\\int \\arctan(x)\\,dx$",      a: "$x\\arctan x - \\frac{1}{2}\\ln(1+x^2) + C$" },
+      { q: "$\\displaystyle\\int x^3 e^x\\,dx$",          a: "$(x^3-3x^2+6x-6)e^x + C$" },
+      { q: "$\\displaystyle\\int e^x\\sin(x)\\,dx$",      a: "$\\frac{e^x(\\sin x - \\cos x)}{2} + C$" },
+    ],
+    summary: [
+      "La fórmula $\\int u\\,dv = uv - \\int v\\,du$ transforma un producto difícil en una integral más simple.",
+      "Usa la regla **LIATE** para elegir $u$: logarítmicas primero, exponenciales al final.",
+      "Si el grado del polinomio es mayor que 1, aplica la fórmula más de una vez en cadena.",
+      "En el caso cíclico ($e^x\\sin x$, $e^x\\cos x$), la integral original aparece en ambos lados — se despeja algebraicamente.",
+    ]
+  }
+};
