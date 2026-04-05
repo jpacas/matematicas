@@ -20,6 +20,7 @@ pnpm-debug.log*
 .playwright-mcp/
 .superpowers/
 .worktrees/
+.claude/
 
 # Dependency and package manager artifacts
 node_modules/
@@ -35,3 +36,8 @@ __pycache__/
 # Environment / local-only config
 .env
 .env.*
+.gstack/
+
+# Local generated artifacts not used by the static app
+grafos-prerequisitos/
+docs/superpowers/plans/
