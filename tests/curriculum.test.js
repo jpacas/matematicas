@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   TOPICS,
+  PRELOADED,
   getLessonById,
   getDependents,
   getRecommendedNext,
@@ -38,4 +39,18 @@ test("recommended path flows across the curriculum", () => {
   assert.deepEqual(getLessonById("1.1.1").prerequisites, []);
   assert.ok(getDependents("1.5.1").includes("1.5.2"));
   assert.ok(getRecommendedNext("1.1.1").includes("1.1.2"));
+});
+
+test("preloaded guided lessons expose teaching blocks with practice metadata", () => {
+  const guided = Object.values(PRELOADED);
+  assert.ok(guided.length > 0);
+
+  for (const lesson of guided) {
+    assert.ok(Array.isArray(lesson.blocks));
+    assert.ok(lesson.blocks.length > 0);
+    for (const block of lesson.blocks) {
+      assert.match(block.type, /^(concept|practice|application|recognition)$/);
+      assert.equal(typeof block.title, "string");
+    }
+  }
 });

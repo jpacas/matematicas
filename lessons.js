@@ -435,6 +435,10 @@ function getMissingPrerequisites(id, progressData = {}) {
 const PRELOADED = {
   "1.5.1": {
     objective: "Aprender a calcular integrales de <strong>productos de funciones</strong> usando la fórmula $\\int u\\,dv = uv - \\int v\\,du$, y desarrollar intuición para elegir $u$ y $dv$ correctamente.",
+    intro: {
+      summary: "La integración por partes convierte productos difíciles en una secuencia de pasos manejables.",
+      analogy: "Imagina una mudanza: separas el objeto grande de las cajas pequeñas para mover todo con más control.",
+    },
     concept: [
       "Imagina que tienes que empacar una mudanza con muebles grandes y cajas pequeñas. Si tratas de moverlo todo de golpe, es imposible. La estrategia inteligente: mueves el mueble primero, y ese movimiento te abre espacio para las cajas. Integración por partes hace lo mismo — transfiere la complejidad de integrar de una función a la otra hasta que el problema se vuelve manejable.",
       "Cuando una integral tiene la forma de un <em>producto de dos funciones</em> — como $xe^x$, $x\\ln x$ o $x\\sin x$ — la sustitución no funciona. Necesitamos una técnica que separe las responsabilidades. La idea surge directamente de la <strong>regla del producto para derivadas</strong>: si $(uv)' = u'v + uv'$, integrando obtenemos $uv = \\int u'v\\,dx + \\int uv'\\,dx$, que reorganizado nos da la fórmula de integración por partes."
@@ -508,6 +512,40 @@ const PRELOADED = {
       "Usa la regla **LIATE** para elegir $u$: logarítmicas primero, exponenciales al final.",
       "Si el grado del polinomio es mayor que 1, aplica la fórmula más de una vez en cadena.",
       "En el caso cíclico ($e^x\\sin x$, $e^x\\cos x$), la integral original aparece en ambos lados — se despeja algebraicamente.",
+    ],
+    blocks: [
+      {
+        type: "concept",
+        title: "Idea central",
+        content: [
+          "La integración por partes reorganiza un producto para que una parte quede más simple al integrarse.",
+          "Su fórmula nace directamente de la regla del producto de derivadas.",
+        ],
+      },
+      {
+        type: "practice",
+        title: "Elegir $u$ y $dv$",
+        content: [
+          "Usa LIATE para decidir qué función conviene derivar y cuál conviene integrar.",
+          "Practica con productos como $x e^x$, $x \\ln x$ y $x \\sin x$.",
+        ],
+      },
+      {
+        type: "application",
+        title: "Ejemplos resueltos",
+        content: [
+          "Resuelve integrales que requieren una sola aplicación, varias aplicaciones y casos cíclicos.",
+          "Observa cómo se reutiliza la técnica cuando la integral reaparece.",
+        ],
+      },
+      {
+        type: "recognition",
+        title: "Cuándo usarla",
+        content: [
+          "El método es útil cuando ves un producto de funciones y la sustitución no encaja.",
+          "Suele funcionar bien con polinomios por un lado y exponenciales, logaritmos o trigonométricas por el otro.",
+        ],
+      },
     ],
     mcq: [
       {
