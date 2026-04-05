@@ -48,6 +48,16 @@ test("preloaded guided lessons expose teaching blocks with practice metadata", (
   for (const lesson of guided) {
     assert.ok(Array.isArray(lesson.blocks));
     assert.ok(lesson.blocks.length > 0);
+
+    const practiceBlock = lesson.blocks.find(block => block.type === "practice");
+    assert.ok(practiceBlock, "expected a practice block");
+    assert.equal(typeof practiceBlock.prompt, "string");
+    assert.ok(Array.isArray(practiceBlock.choices));
+    assert.ok(practiceBlock.choices.length >= 2);
+    assert.equal(typeof practiceBlock.correctMessage, "string");
+    assert.equal(typeof practiceBlock.hint, "string");
+    assert.equal(typeof practiceBlock.walkthrough, "string");
+
     for (const block of lesson.blocks) {
       assert.match(block.type, /^(concept|practice|application|recognition)$/);
       assert.equal(typeof block.title, "string");

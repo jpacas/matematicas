@@ -525,6 +525,15 @@ const PRELOADED = {
       {
         type: "practice",
         title: "Elegir $u$ y $dv$",
+        prompt: "Para la integral $\\int x e^x\\,dx$, decide qué conviene elegir como $u$ y qué conviene elegir como $dv$.",
+        choices: [
+          "$u = x$, $dv = e^x\\,dx$",
+          "$u = e^x$, $dv = x\\,dx$",
+          "$u = x e^x$, $dv = dx$",
+        ],
+        correctMessage: "Correcto: conviene tomar $u = x$ porque su derivada simplifica la integral.",
+        hint: "Aplica LIATE: una función algebraica suele ir antes que una exponencial.",
+        walkthrough: "Elige $u = x$ y $dv = e^x\\,dx$, luego calcula $du = dx$ y $v = e^x$ para aplicar $\\int u\\,dv = uv - \\int v\\,du$.",
         content: [
           "Usa LIATE para decidir qué función conviene derivar y cuál conviene integrar.",
           "Practica con productos como $x e^x$, $x \\ln x$ y $x \\sin x$.",
