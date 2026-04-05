@@ -19,6 +19,7 @@ pnpm-debug.log*
 # Local verification / browser tooling
 .playwright-mcp/
 .superpowers/
+.worktrees/
 
 # Dependency and package manager artifacts
 node_modules/
