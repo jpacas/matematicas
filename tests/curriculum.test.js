@@ -1,13 +1,21 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const lessons = require("../lessons.js");
+
 const {
   TOPICS,
   PRELOADED,
   getLessonById,
   getDependents,
   getRecommendedNext,
-} = require("../lessons.js");
+} = lessons;
+
+const {
+  getPracticeFeedbackState,
+  createLessonSessionState,
+  countCompletedBlocks,
+} = require("../app.js");
 
 test("curriculum keeps all lessons and exposes metadata", () => {
   const lessons = TOPICS.flatMap(topic => topic.lessons);
@@ -96,4 +104,31 @@ test("preloaded guided lessons expose teaching blocks with practice metadata", (
       assert.ok(block.content.every(item => typeof item === "string" && item.length > 0));
     }
   }
+});
+
+test("guided practice escalates from neutral to hint to walkthrough", () => {
+  assert.equal(getPracticeFeedbackState({ attempts: 0, solved: false }), "idle");
+  assert.equal(getPracticeFeedbackState({ attempts: 1, solved: false }), "hint");
+  assert.equal(getPracticeFeedbackState({ attempts: 2, solved: false }), "walkthrough");
+  assert.equal(getPracticeFeedbackState({ attempts: 1, solved: true }), "correct");
+});
+
+test("guided lesson session state initializes per block and counts completed progress", () => {
+  const session = createLessonSessionState(PRELOADED["1.5.1"]);
+
+  assert.equal(session.length, PRELOADED["1.5.1"].blocks.length);
+  assert.deepEqual(session[0], { completed: false });
+  assert.deepEqual(session[1], {
+    attempts: 0,
+    completed: false,
+    selectedChoice: null,
+    solved: false,
+  });
+  assert.equal(countCompletedBlocks(session), 0);
+
+  session[0].completed = true;
+  session[1].solved = true;
+  session[2].completed = true;
+
+  assert.equal(countCompletedBlocks(session), 3);
 });

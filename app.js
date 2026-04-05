@@ -1,5 +1,22 @@
 /* app.js — Cálculo II Mini-Lecciones */
 
+const IS_NODE = typeof module !== "undefined" && module.exports;
+const IS_BROWSER = !IS_NODE && typeof window !== "undefined" && typeof document !== "undefined";
+
+const LESSONS_API = IS_NODE
+  ? require("./lessons.js")
+  : window;
+
+const {
+  TOPICS,
+  PRELOADED,
+  getLessonById,
+  getPrerequisites,
+  getDependents,
+  getRecommendedNext,
+  getMissingPrerequisites,
+} = LESSONS_API;
+
 /* ── Constants ─────────────────────────────────────────────── */
 const SECTION_META = {
   "🎯 Objetivo":             { color: "#8b6914", accent: "#8b6914" },
@@ -21,23 +38,56 @@ let generatedCache = {}; // { lessonId: rawText }
 let progressData  = {}; // { lessonId: { mastered, masteredAt, lastPracticed, practiceCount } }
 let isGenerating = false;
 
+function getPracticeFeedbackState(session = {}) {
+  if (session.solved) return "correct";
+  if ((session.attempts || 0) >= 2) return "walkthrough";
+  if ((session.attempts || 0) >= 1) return "hint";
+  return "idle";
+}
+
+function createLessonSessionState(lesson) {
+  const blocks = Array.isArray(lesson?.blocks) ? lesson.blocks : [];
+  return blocks.map(block => {
+    if (block.type === "practice") {
+      return {
+        attempts: 0,
+        completed: false,
+        selectedChoice: null,
+        solved: false,
+      };
+    }
+
+    return { completed: false };
+  });
+}
+
+function countCompletedBlocks(session = []) {
+  return session.reduce((count, blockState = {}) => {
+    return count + (blockState.completed || blockState.solved ? 1 : 0);
+  }, 0);
+}
+
 /* ── Load cache & progress from localStorage ─────────────────── */
+const storage = IS_BROWSER && typeof localStorage !== "undefined"
+  ? localStorage
+  : null;
+
 try {
-  const saved = localStorage.getItem("calc2_lessons");
+  const saved = storage?.getItem("calc2_lessons");
   if (saved) generatedCache = JSON.parse(saved);
 } catch (_) {}
 
 try {
-  const saved = localStorage.getItem("calc2_progress");
+  const saved = storage?.getItem("calc2_progress");
   if (saved) progressData = JSON.parse(saved);
 } catch (_) {}
 
 function saveCache() {
-  try { localStorage.setItem("calc2_lessons", JSON.stringify(generatedCache)); } catch (_) {}
+  try { storage?.setItem("calc2_lessons", JSON.stringify(generatedCache)); } catch (_) {}
 }
 
 function saveProgress() {
-  try { localStorage.setItem("calc2_progress", JSON.stringify(progressData)); } catch (_) {}
+  try { storage?.setItem("calc2_progress", JSON.stringify(progressData)); } catch (_) {}
 }
 
 function ensureProgressEntry(id) {
@@ -54,35 +104,35 @@ function recordPractice(id) {
 }
 
 /* ── DOM refs ───────────────────────────────────────────────── */
-const $nav              = document.getElementById("lessonNav");
-const $search           = document.getElementById("search");
-const $count            = document.getElementById("lessonCount");
-const $emptyState       = document.getElementById("emptyState");
-const $lessonView       = document.getElementById("lessonView");
-const $heroTag          = document.getElementById("heroTag");
-const $heroTitle        = document.getElementById("heroTitle");
-const $heroMeta         = document.getElementById("heroMeta");
-const $heroProgress     = document.getElementById("heroProgress");
-const $progressFill     = document.getElementById("progressFill");
-const $btnGenerate      = document.getElementById("btnGenerate");
-const $btnCopy          = document.getElementById("btnCopy");
-const $btnMastered      = document.getElementById("btnMastered");
-const $streamPreview    = document.getElementById("streamPreview");
-const $streamText       = document.getElementById("streamText");
-const $errorBox         = document.getElementById("errorBox");
-const $learningPathShell= document.getElementById("learningPathShell");
-const $lessonContent    = document.getElementById("lessonContent");
-const $progressOverlay  = document.getElementById("progressOverlay");
-const $progressStats    = document.getElementById("progressStats");
-const $progressTableWrap= document.getElementById("progressTableWrap");
-const $graphOverlay     = document.getElementById("graphOverlay");
-const $graphSummary     = document.getElementById("graphSummary");
-const $graphMapWrap     = document.getElementById("graphMapWrap");
-const $btnGraphOpen     = document.getElementById("btnGraphOpen");
-const $btnProgressOpen  = document.getElementById("btnProgressOpen");
-const $btnCloseProgress = document.getElementById("btnCloseProgress");
-const $btnCloseGraph    = document.getElementById("btnCloseGraph");
-const $btnExportMd      = document.getElementById("btnExportMd");
+const $nav               = IS_BROWSER ? document.getElementById("lessonNav") : null;
+const $search            = IS_BROWSER ? document.getElementById("search") : null;
+const $count             = IS_BROWSER ? document.getElementById("lessonCount") : null;
+const $emptyState        = IS_BROWSER ? document.getElementById("emptyState") : null;
+const $lessonView        = IS_BROWSER ? document.getElementById("lessonView") : null;
+const $heroTag           = IS_BROWSER ? document.getElementById("heroTag") : null;
+const $heroTitle         = IS_BROWSER ? document.getElementById("heroTitle") : null;
+const $heroMeta          = IS_BROWSER ? document.getElementById("heroMeta") : null;
+const $heroProgress      = IS_BROWSER ? document.getElementById("heroProgress") : null;
+const $progressFill      = IS_BROWSER ? document.getElementById("progressFill") : null;
+const $btnGenerate       = IS_BROWSER ? document.getElementById("btnGenerate") : null;
+const $btnCopy           = IS_BROWSER ? document.getElementById("btnCopy") : null;
+const $btnMastered       = IS_BROWSER ? document.getElementById("btnMastered") : null;
+const $streamPreview     = IS_BROWSER ? document.getElementById("streamPreview") : null;
+const $streamText        = IS_BROWSER ? document.getElementById("streamText") : null;
+const $errorBox          = IS_BROWSER ? document.getElementById("errorBox") : null;
+const $learningPathShell = IS_BROWSER ? document.getElementById("learningPathShell") : null;
+const $lessonContent     = IS_BROWSER ? document.getElementById("lessonContent") : null;
+const $progressOverlay   = IS_BROWSER ? document.getElementById("progressOverlay") : null;
+const $progressStats     = IS_BROWSER ? document.getElementById("progressStats") : null;
+const $progressTableWrap = IS_BROWSER ? document.getElementById("progressTableWrap") : null;
+const $graphOverlay      = IS_BROWSER ? document.getElementById("graphOverlay") : null;
+const $graphSummary      = IS_BROWSER ? document.getElementById("graphSummary") : null;
+const $graphMapWrap      = IS_BROWSER ? document.getElementById("graphMapWrap") : null;
+const $btnGraphOpen      = IS_BROWSER ? document.getElementById("btnGraphOpen") : null;
+const $btnProgressOpen   = IS_BROWSER ? document.getElementById("btnProgressOpen") : null;
+const $btnCloseProgress  = IS_BROWSER ? document.getElementById("btnCloseProgress") : null;
+const $btnCloseGraph     = IS_BROWSER ? document.getElementById("btnCloseGraph") : null;
+const $btnExportMd       = IS_BROWSER ? document.getElementById("btnExportMd") : null;
 
 function getTopicByLessonId(id) {
   return TOPICS.find(topic => topic.lessons.some(lesson => lesson.id === id)) || null;
@@ -184,7 +234,7 @@ function highlightMatch(text, query) {
 }
 
 /* ── Search ─────────────────────────────────────────────────── */
-$search.addEventListener("input", () => buildNav($search.value.trim().toLowerCase()));
+$search?.addEventListener("input", () => buildNav($search.value.trim().toLowerCase()));
 
 /* ══════════════════════════════════════════════════════════════
    LESSON SELECTION
@@ -475,7 +525,9 @@ function sectionCard(title, bodyHTML, colorOverride) {
 function toggleExercise(id) {
   document.getElementById(id)?.classList.toggle("open");
 }
-window.toggleExercise = toggleExercise; // expose for inline onclick
+if (IS_BROWSER) {
+  window.toggleExercise = toggleExercise; // expose for inline onclick
+}
 
 /* ── Trigger KaTeX rendering ────────────────────────────────── */
 function triggerKaTeX() {
@@ -660,7 +712,7 @@ CORRECTA: [A o B o C o D]
 
 Responde en español. Sé riguroso y didáctico.`;
 
-$btnGenerate.addEventListener("click", async () => {
+$btnGenerate?.addEventListener("click", async () => {
   if (!activeLesson || isGenerating) return;
 
   isGenerating = true;
@@ -744,7 +796,7 @@ $btnGenerate.addEventListener("click", async () => {
 });
 
 /* ── Copy to clipboard ───────────────────────────────────────── */
-$btnCopy.addEventListener("click", () => {
+$btnCopy?.addEventListener("click", () => {
   const text = $lessonContent.innerText;
   navigator.clipboard.writeText(text).then(() => {
     $btnCopy.classList.add("copied");
@@ -756,11 +808,13 @@ $btnCopy.addEventListener("click", () => {
   });
 });
 
-document.addEventListener("click", event => {
-  const trigger = event.target.closest("[data-lesson-jump]");
-  if (!trigger) return;
-  jumpToLesson(trigger.dataset.lessonJump);
-});
+if (IS_BROWSER) {
+  document.addEventListener("click", event => {
+    const trigger = event.target.closest("[data-lesson-jump]");
+    if (!trigger) return;
+    jumpToLesson(trigger.dataset.lessonJump);
+  });
+}
 
 /* ══════════════════════════════════════════════════════════════
    MULTIPLE CHOICE (MCQ)
@@ -866,7 +920,7 @@ function handleMCQSelect(itemEl, chosen, correct) {
 /* ══════════════════════════════════════════════════════════════
    MASTERED BUTTON
 ══════════════════════════════════════════════════════════════ */
-$btnMastered.addEventListener("click", () => {
+$btnMastered?.addEventListener("click", () => {
   if (!activeLesson) return;
   ensureProgressEntry(activeLesson.id);
   const entry = progressData[activeLesson.id];
@@ -882,30 +936,30 @@ $btnMastered.addEventListener("click", () => {
 /* ══════════════════════════════════════════════════════════════
    PROGRESS MODAL
 ══════════════════════════════════════════════════════════════ */
-$btnGraphOpen.addEventListener("click", openGraphOverlay);
+$btnGraphOpen?.addEventListener("click", openGraphOverlay);
 
-$btnCloseGraph.addEventListener("click", () => {
+$btnCloseGraph?.addEventListener("click", () => {
   $graphOverlay.style.display = "none";
 });
 
-$graphOverlay.addEventListener("click", e => {
+$graphOverlay?.addEventListener("click", e => {
   if (e.target === $graphOverlay) $graphOverlay.style.display = "none";
 });
 
-$btnProgressOpen.addEventListener("click", () => {
+$btnProgressOpen?.addEventListener("click", () => {
   renderProgressModal();
   $progressOverlay.style.display = "flex";
 });
 
-$btnCloseProgress.addEventListener("click", () => {
+$btnCloseProgress?.addEventListener("click", () => {
   $progressOverlay.style.display = "none";
 });
 
-$progressOverlay.addEventListener("click", e => {
+$progressOverlay?.addEventListener("click", e => {
   if (e.target === $progressOverlay) $progressOverlay.style.display = "none";
 });
 
-$btnExportMd.addEventListener("click", exportProgressMarkdown);
+$btnExportMd?.addEventListener("click", exportProgressMarkdown);
 
 function renderProgressModal() {
   const allLessons = TOPICS.flatMap(t => t.lessons);
@@ -1016,4 +1070,14 @@ function exportProgressMarkdown() {
 /* ══════════════════════════════════════════════════════════════
    INIT
 ══════════════════════════════════════════════════════════════ */
-buildNav();
+if (IS_BROWSER) {
+  buildNav();
+}
+
+if (IS_NODE) {
+  module.exports = {
+    getPracticeFeedbackState,
+    createLessonSessionState,
+    countCompletedBlocks,
+  };
+}
