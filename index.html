@@ -49,17 +49,24 @@
   <!-- ── MAIN ────────────────────────────────────────── -->
   <main class="main">
 
-    <!-- Empty state -->
-    <div class="empty-state" id="emptyState">
-      <div class="empty-integral">∫</div>
-      <h2 class="empty-title">Selecciona una lección</h2>
-      <p class="empty-sub">Elige un tema del menú lateral para estudiar una mini-lección en español, revisar sus prerrequisitos y generar contenido con IA.</p>
-      <div class="empty-chips">
-        <span class="chip">📐 KaTeX · ecuaciones pro</span>
-        <span class="chip">✨ Contenido asistido por IA</span>
-        <span class="chip">🏋️ Ejercicios con soluciones</span>
-        <span class="chip">🗺 Ruta de prerrequisitos</span>
-      </div>
+    <!-- Homepage launcher -->
+    <div class="empty-state study-launcher" id="emptyState">
+      <section class="launcher-hero">
+        <div class="launcher-hero-copy">
+          <p class="launcher-kicker">Panel de estudio</p>
+          <h2 class="launcher-title" id="homeTitle">Lanza tu siguiente sesión</h2>
+          <p class="launcher-sub" id="homeSubtitle">Revisa tu progreso reciente, retoma una lección y elige el siguiente paso sugerido.</p>
+          <div class="launcher-stats" id="homeStats"></div>
+        </div>
+        <aside class="launcher-hero-panel" id="homeStarterPanel"></aside>
+      </section>
+
+      <section class="launcher-grid">
+        <article class="launcher-card launcher-card-feature" id="homeContinueCard"></article>
+        <article class="launcher-card launcher-card-feature" id="homeRecommendedCard"></article>
+        <article class="launcher-card" id="homeReviewCard"></article>
+        <article class="launcher-card" id="homeRecentCard"></article>
+      </section>
     </div>
 
     <!-- Lesson view -->

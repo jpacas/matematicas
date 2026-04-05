@@ -14,6 +14,8 @@ const lookupPrerequisites = IS_NODE ? LESSONS_API.getPrerequisites : getPrerequi
 const lookupDependents = IS_NODE ? LESSONS_API.getDependents : getDependents;
 const lookupRecommendedNext = IS_NODE ? LESSONS_API.getRecommendedNext : getRecommendedNext;
 const lookupMissingPrerequisites = IS_NODE ? LESSONS_API.getMissingPrerequisites : getMissingPrerequisites;
+const ALL_LESSONS = TOPICS_DATA.flatMap(topic => topic.lessons);
+const DEFAULT_ENTRY_LESSON_ID = ALL_LESSONS.find(lesson => lookupMissingPrerequisites(lesson.id, {}).length === 0)?.id || ALL_LESSONS[0]?.id || null;
 
 /* ── Constants ─────────────────────────────────────────────── */
 const SECTION_META = {
@@ -112,6 +114,7 @@ function recordPractice(id) {
   progressData[id].lastPracticed = new Date().toISOString().slice(0, 10);
   progressData[id].practiceCount++;
   saveProgress();
+  if (IS_BROWSER) renderHomepage();
 }
 
 function recordMeaningfulPractice(id = activeLesson?.id) {
@@ -125,6 +128,14 @@ const $nav               = IS_BROWSER ? document.getElementById("lessonNav") : n
 const $search            = IS_BROWSER ? document.getElementById("search") : null;
 const $count             = IS_BROWSER ? document.getElementById("lessonCount") : null;
 const $emptyState        = IS_BROWSER ? document.getElementById("emptyState") : null;
+const $homeTitle         = IS_BROWSER ? document.getElementById("homeTitle") : null;
+const $homeSubtitle      = IS_BROWSER ? document.getElementById("homeSubtitle") : null;
+const $homeStats         = IS_BROWSER ? document.getElementById("homeStats") : null;
+const $homeStarterPanel  = IS_BROWSER ? document.getElementById("homeStarterPanel") : null;
+const $homeContinueCard  = IS_BROWSER ? document.getElementById("homeContinueCard") : null;
+const $homeRecommendedCard = IS_BROWSER ? document.getElementById("homeRecommendedCard") : null;
+const $homeReviewCard    = IS_BROWSER ? document.getElementById("homeReviewCard") : null;
+const $homeRecentCard    = IS_BROWSER ? document.getElementById("homeRecentCard") : null;
 const $lessonView        = IS_BROWSER ? document.getElementById("lessonView") : null;
 const $heroTag           = IS_BROWSER ? document.getElementById("heroTag") : null;
 const $heroTitle         = IS_BROWSER ? document.getElementById("heroTitle") : null;
@@ -167,6 +178,143 @@ function getLessonState(id) {
   if (progressData[id]?.practiceCount > 0) return "practiced";
   if ((lookupMissingPrerequisites(id, progressData) || []).length === 0) return "ready";
   return "pending";
+}
+
+function getProgressEntry(id, progress = progressData) {
+  return progress?.[id] || {};
+}
+
+function hasLessonHistory(entry = {}) {
+  return Boolean(entry.mastered || entry.practiceCount > 0 || entry.lastPracticed || entry.masteredAt);
+}
+
+function getLessonActivityDate(entry = {}) {
+  return entry.lastPracticed || entry.masteredAt || "";
+}
+
+function compareLessonsByProgress(a, b, progress = progressData) {
+  const entryA = getProgressEntry(a.id, progress);
+  const entryB = getProgressEntry(b.id, progress);
+  const dateCompare = getLessonActivityDate(entryB).localeCompare(getLessonActivityDate(entryA));
+  if (dateCompare !== 0) return dateCompare;
+
+  const practiceCompare = (entryB.practiceCount || 0) - (entryA.practiceCount || 0);
+  if (practiceCompare !== 0) return practiceCompare;
+
+  const masteredCompare = Number(Boolean(entryB.mastered)) - Number(Boolean(entryA.mastered));
+  if (masteredCompare !== 0) return masteredCompare;
+
+  return a.id.localeCompare(b.id);
+}
+
+function getTopicLabelByLessonId(id) {
+  return getTopicByLessonId(id)?.label || "Ruta del curso";
+}
+
+function dedupeLessonIds(ids = []) {
+  const seen = new Set();
+  return ids.filter(id => {
+    if (!id || seen.has(id) || !lookupLessonById(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function getRecentProgressLessons(progress = progressData) {
+  return ALL_LESSONS
+    .filter(lesson => hasLessonHistory(getProgressEntry(lesson.id, progress)))
+    .sort((a, b) => compareLessonsByProgress(a, b, progress));
+}
+
+function getReadyLessons(progress = progressData, { includeMastered = false } = {}) {
+  return ALL_LESSONS.filter(lesson => {
+    if (!includeMastered && progress[lesson.id]?.mastered) return false;
+    return lookupMissingPrerequisites(lesson.id, progress).length === 0;
+  });
+}
+
+function getDefaultEntryLesson() {
+  return lookupLessonById(DEFAULT_ENTRY_LESSON_ID);
+}
+
+function pickRecommendedLesson(progress = progressData, continueLesson = null, recentLessons = []) {
+  const recommendedFromHistory = dedupeLessonIds([
+    ...(continueLesson ? lookupRecommendedNext(continueLesson.id) : []),
+    ...recentLessons.slice(0, 3).flatMap(lesson => lookupRecommendedNext(lesson.id)),
+  ]);
+
+  const readyFromHistory = recommendedFromHistory.find(id => {
+    if (id === continueLesson?.id) return false;
+    if (progress[id]?.mastered) return false;
+    return lookupMissingPrerequisites(id, progress).length === 0;
+  });
+  if (readyFromHistory) return lookupLessonById(readyFromHistory);
+
+  const readyLessons = getReadyLessons(progress);
+  return readyLessons.find(lesson => lesson.id !== continueLesson?.id && !progress[lesson.id]?.practiceCount)
+    || readyLessons.find(lesson => lesson.id !== continueLesson?.id)
+    || continueLesson
+    || getDefaultEntryLesson();
+}
+
+function buildHomepageModel(progress = progressData) {
+  const recentLessons = getRecentProgressLessons(progress);
+  const hasHistory = recentLessons.length > 0;
+  const continueLesson = recentLessons[0] || null;
+  const continueEntry = continueLesson ? getProgressEntry(continueLesson.id, progress) : null;
+  const entryLesson = getDefaultEntryLesson();
+  const recommendedLesson = pickRecommendedLesson(progress, continueLesson, recentLessons);
+  const recentPractice = recentLessons.slice(0, 4).map(lesson => ({
+    lesson,
+    entry: getProgressEntry(lesson.id, progress),
+  }));
+
+  const reviewReasonById = {};
+  const continueMissing = continueLesson ? lookupMissingPrerequisites(continueLesson.id, progress) : [];
+  const recommendedMissing = recommendedLesson ? lookupMissingPrerequisites(recommendedLesson.id, progress) : [];
+
+  continueMissing.forEach(id => {
+    reviewReasonById[id] = "Te ayuda a retomar la sesión más reciente.";
+  });
+
+  recommendedMissing.forEach(id => {
+    if (!reviewReasonById[id]) reviewReasonById[id] = "Desbloquea la recomendación principal.";
+  });
+
+  recentLessons
+    .filter(lesson => !progress[lesson.id]?.mastered)
+    .forEach(lesson => {
+      if (!reviewReasonById[lesson.id]) reviewReasonById[lesson.id] = "Ya lo practicaste: conviene consolidarlo.";
+    });
+
+  const topicsToReview = dedupeLessonIds([
+    ...continueMissing,
+    ...recommendedMissing,
+    ...recentLessons.filter(lesson => !progress[lesson.id]?.mastered).map(lesson => lesson.id),
+  ])
+    .filter(id => id !== continueLesson?.id && id !== recommendedLesson?.id)
+    .slice(0, 4)
+    .map(id => ({
+      lesson: lookupLessonById(id),
+      reason: reviewReasonById[id] || "Conviene repasarlo antes de seguir avanzando.",
+    }))
+    .filter(item => item.lesson);
+
+  return {
+    hasHistory,
+    entryLesson,
+    continueLesson,
+    continueEntry,
+    recommendedLesson,
+    topicsToReview,
+    recentPractice,
+    stats: {
+      masteredCount: ALL_LESSONS.filter(lesson => progress[lesson.id]?.mastered).length,
+      practicedCount: ALL_LESSONS.filter(lesson => progress[lesson.id]?.practiceCount > 0).length,
+      readyCount: getReadyLessons(progress).length,
+      totalSessions: Object.values(progress).reduce((sum, entry) => sum + (entry?.practiceCount || 0), 0),
+    },
+  };
 }
 
 function escapeHTML(text = "") {
@@ -323,6 +471,178 @@ function renderLessonChip(id, extraClass = "") {
       <span class="lesson-chip-id">${lesson.id}</span>
       <span class="lesson-chip-title">${escapeHTML(lesson.name)}</span>
     </button>`;
+}
+
+function formatLessonDate(dateString = "") {
+  if (!dateString) return "Sin fecha";
+  const parsed = new Date(`${dateString}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return dateString;
+  return new Intl.DateTimeFormat("es-SV", {
+    day: "numeric",
+    month: "short",
+  }).format(parsed);
+}
+
+function formatSessionLabel(count = 0) {
+  return `${count} sesi${count === 1 ? "ón" : "ones"}`;
+}
+
+function renderLauncherStats(stats = {}) {
+  return `
+    <div class="launcher-stat">
+      <strong>${stats.masteredCount || 0}</strong>
+      <span>dominadas</span>
+    </div>
+    <div class="launcher-stat">
+      <strong>${stats.practicedCount || 0}</strong>
+      <span>practicadas</span>
+    </div>
+    <div class="launcher-stat">
+      <strong>${stats.readyCount || 0}</strong>
+      <span>listas ahora</span>
+    </div>`;
+}
+
+function renderLauncherSpotlight(lesson, {
+  chipClass = "",
+  description = "",
+  meta = [],
+} = {}) {
+  if (!lesson) return '<div class="launcher-empty">No hay una lección disponible para mostrar.</div>';
+
+  return `
+    <div class="launcher-spotlight">
+      ${renderLessonChip(lesson.id, chipClass)}
+      ${description ? `<p class="launcher-card-copy">${escapeHTML(description)}</p>` : ""}
+      ${meta.length ? `<div class="launcher-meta-row">${meta.map(item => `<span>${escapeHTML(item)}</span>`).join("")}</div>` : ""}
+    </div>`;
+}
+
+function renderLauncherList(items = [], emptyText = "", renderItem) {
+  if (!items.length) return `<div class="launcher-empty">${escapeHTML(emptyText)}</div>`;
+  return `<div class="launcher-list">${items.map(renderItem).join("")}</div>`;
+}
+
+function renderHomepage() {
+  if (!$emptyState || !$homeTitle || !$homeSubtitle || !$homeStats || !$homeStarterPanel || !$homeContinueCard || !$homeRecommendedCard || !$homeReviewCard || !$homeRecentCard) return;
+
+  const model = buildHomepageModel(progressData);
+  const starterLesson = model.recommendedLesson || model.entryLesson;
+
+  $homeTitle.textContent = model.hasHistory
+    ? "Retoma tu ritmo de estudio"
+    : "Empieza con una ruta clara";
+
+  $homeSubtitle.textContent = model.hasHistory
+    ? "Tu panel combina progreso reciente, repaso pendiente y el siguiente contenido listo para estudiar."
+    : "Abre una lección de entrada, completa la práctica guiada y este panel se convertirá en tu lanzador personal.";
+
+  $homeStats.innerHTML = renderLauncherStats(model.stats);
+
+  if (model.hasHistory) {
+    const actionIds = dedupeLessonIds([
+      model.continueLesson?.id,
+      model.recommendedLesson?.id,
+    ]);
+
+    $homeStarterPanel.innerHTML = `
+      <div class="launcher-panel-kicker">Sesión sugerida</div>
+      <h3 class="launcher-panel-title">Hoy conviene abrir ${escapeHTML(starterLesson?.name || "tu siguiente lección")}</h3>
+      <p class="launcher-panel-copy">Continúa con tu sesión más reciente o aprovecha una recomendación que ya quedó desbloqueada según tus prerrequisitos.</p>
+      <div class="launcher-actions">
+        ${actionIds.map((id, index) => `
+          <button class="launcher-action${index === 0 ? " is-primary" : ""}" type="button" data-lesson-jump="${id}">
+            ${index === 0 ? "Continuar" : "Abrir sugerida"} ${id}
+          </button>`).join("")}
+      </div>`;
+  } else {
+    $homeStarterPanel.innerHTML = `
+      <div class="launcher-panel-kicker">Primer paso</div>
+      <h3 class="launcher-panel-title">Empieza por ${escapeHTML(model.entryLesson?.id || "")}</h3>
+      <p class="launcher-panel-copy">La forma más segura de arrancar es estudiar una lección raíz, responder sus bloques guiados y usar el botón de dominada cuando ya no necesites apoyo.</p>
+      <ol class="launcher-steps">
+        <li>Abre la lección recomendada de entrada.</li>
+        <li>Completa la práctica y revisa sus prerrequisitos sugeridos.</li>
+        <li>Vuelve aquí: verás continuidad, repaso y práctica reciente.</li>
+      </ol>
+      <div class="launcher-actions">
+        <button class="launcher-action is-primary" type="button" data-lesson-jump="${model.entryLesson?.id || ""}">Comenzar con ${escapeHTML(model.entryLesson?.id || "")}</button>
+        <button class="launcher-action" type="button" data-open-graph="true">Ver mapa del curso</button>
+      </div>`;
+  }
+
+  $homeContinueCard.innerHTML = model.hasHistory
+    ? `
+      <div class="launcher-card-kicker">Continuar</div>
+      <h3 class="launcher-card-title">Sigue donde te quedaste</h3>
+      ${renderLauncherSpotlight(model.continueLesson, {
+        chipClass: "is-focus",
+        description: model.continueEntry?.mastered
+          ? "La última lección quedó dominada; úsala como repaso rápido o salta a la recomendación."
+          : "Esta es la sesión con actividad más reciente y el punto más natural para retomar.",
+        meta: [
+          `Última práctica: ${formatLessonDate(model.continueEntry?.lastPracticed)}`,
+          formatSessionLabel(model.continueEntry?.practiceCount || 0),
+          model.continueEntry?.mastered ? "Estado: dominada" : "Estado: en progreso",
+        ],
+      })}
+    `
+    : `
+      <div class="launcher-card-kicker">Continuar</div>
+      <h3 class="launcher-card-title">Tu continuidad aparecerá aquí</h3>
+      <div class="launcher-empty">Después de tu primera práctica, esta tarjeta te llevará directo a la lección más reciente.</div>
+    `;
+
+  $homeRecommendedCard.innerHTML = `
+    <div class="launcher-card-kicker">Recomendación</div>
+    <h3 class="launcher-card-title">${model.hasHistory ? "Siguiente lección sugerida" : "Lección recomendada para empezar"}</h3>
+    ${renderLauncherSpotlight(model.recommendedLesson || model.entryLesson, {
+      chipClass: "is-recommended",
+      description: model.hasHistory
+        ? "Está lista para estudiarse con tu progreso actual y mantiene continuidad con el camino del curso."
+        : "Es una lección raíz: no necesita prerrequisitos dominados y te da una base útil para el resto del mapa.",
+      meta: [
+        getTopicLabelByLessonId((model.recommendedLesson || model.entryLesson)?.id),
+        `${lookupPrerequisites((model.recommendedLesson || model.entryLesson)?.id || "").length} prerrequisitos directos`,
+      ],
+    })}
+  `;
+
+  $homeReviewCard.innerHTML = `
+    <div class="launcher-card-kicker">Repaso</div>
+    <h3 class="launcher-card-title">Temas para revisar</h3>
+    ${renderLauncherList(
+      model.topicsToReview,
+      "Todavía no hay temas de repaso priorizados. Empieza una lección y aquí aparecerán los contenidos que conviene reforzar.",
+      item => `
+        <button class="launcher-list-item" type="button" data-lesson-jump="${item.lesson.id}">
+          <span class="launcher-list-top">
+            <span class="launcher-list-id">${item.lesson.id}</span>
+            <span class="launcher-list-topic">${escapeHTML(getTopicLabelByLessonId(item.lesson.id))}</span>
+          </span>
+          <strong class="launcher-list-title">${escapeHTML(item.lesson.name)}</strong>
+          <span class="launcher-list-copy">${escapeHTML(item.reason)}</span>
+        </button>`
+    )}
+  `;
+
+  $homeRecentCard.innerHTML = `
+    <div class="launcher-card-kicker">Práctica reciente</div>
+    <h3 class="launcher-card-title">Últimas sesiones registradas</h3>
+    ${renderLauncherList(
+      model.recentPractice,
+      "Aún no hay práctica reciente. Cuando resuelvas ejercicios o bloques guiados, se registrarán aquí.",
+      item => `
+        <button class="launcher-list-item" type="button" data-lesson-jump="${item.lesson.id}">
+          <span class="launcher-list-top">
+            <span class="launcher-list-id">${item.lesson.id}</span>
+            <span class="launcher-list-topic">${formatLessonDate(item.entry?.lastPracticed)}</span>
+          </span>
+          <strong class="launcher-list-title">${escapeHTML(item.lesson.name)}</strong>
+          <span class="launcher-list-copy">${formatSessionLabel(item.entry?.practiceCount || 0)} · ${item.entry?.mastered ? "Dominada" : "En progreso"}</span>
+        </button>`
+    )}
+  `;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1075,6 +1395,12 @@ $btnCopy?.addEventListener("click", () => {
 
 if (IS_BROWSER) {
   document.addEventListener("click", event => {
+    const graphTrigger = event.target.closest("[data-open-graph]");
+    if (graphTrigger) {
+      openGraphOverlay();
+      return;
+    }
+
     const trigger = event.target.closest("[data-lesson-jump]");
     if (!trigger) return;
     jumpToLesson(trigger.dataset.lessonJump);
@@ -1221,6 +1547,7 @@ $btnMastered?.addEventListener("click", () => {
   updateNavMasteredIndicators();
   renderLearningPathPanel();
   if ($graphOverlay.style.display === "flex") renderGlobalGraph();
+  renderHomepage();
 });
 
 /* ══════════════════════════════════════════════════════════════
@@ -1362,10 +1689,12 @@ function exportProgressMarkdown() {
 ══════════════════════════════════════════════════════════════ */
 if (IS_BROWSER) {
   buildNav();
+  renderHomepage();
 }
 
 if (IS_NODE) {
   module.exports = {
+    buildHomepageModel,
     getPracticeFeedbackState,
     createLessonSessionState,
     countCompletedBlocks,
