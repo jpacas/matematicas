@@ -7,15 +7,13 @@ const LESSONS_API = IS_NODE
   ? require("./lessons.js")
   : window;
 
-const {
-  TOPICS,
-  PRELOADED,
-  getLessonById,
-  getPrerequisites,
-  getDependents,
-  getRecommendedNext,
-  getMissingPrerequisites,
-} = LESSONS_API;
+const TOPICS_DATA = IS_NODE ? LESSONS_API.TOPICS : TOPICS;
+const PRELOADED_DATA = IS_NODE ? LESSONS_API.PRELOADED : PRELOADED;
+const lookupLessonById = IS_NODE ? LESSONS_API.getLessonById : getLessonById;
+const lookupPrerequisites = IS_NODE ? LESSONS_API.getPrerequisites : getPrerequisites;
+const lookupDependents = IS_NODE ? LESSONS_API.getDependents : getDependents;
+const lookupRecommendedNext = IS_NODE ? LESSONS_API.getRecommendedNext : getRecommendedNext;
+const lookupMissingPrerequisites = IS_NODE ? LESSONS_API.getMissingPrerequisites : getMissingPrerequisites;
 
 /* ── Constants ─────────────────────────────────────────────── */
 const SECTION_META = {
@@ -37,6 +35,7 @@ let activeLesson = null;
 let generatedCache = {}; // { lessonId: rawText }
 let progressData  = {}; // { lessonId: { mastered, masteredAt, lastPracticed, practiceCount } }
 let isGenerating = false;
+let lessonSession = null;
 
 function getPracticeFeedbackState(session = {}) {
   if (session.solved) return "correct";
@@ -65,6 +64,17 @@ function countCompletedBlocks(session = []) {
   return session.reduce((count, blockState = {}) => {
     return count + (blockState.completed || blockState.solved ? 1 : 0);
   }, 0);
+}
+
+function getActiveGuidedBlockIndex(session = [], totalBlocks = session.length || 0) {
+  if (!totalBlocks) return 0;
+  const nextPending = session.findIndex(blockState => !(blockState.completed || blockState.solved));
+  return nextPending === -1 ? Math.max(totalBlocks - 1, 0) : nextPending;
+}
+
+function getLessonBlockProgressLabel(session = [], totalBlocks = session.length || 0) {
+  if (!totalBlocks) return "";
+  return `Bloque ${Math.min(countCompletedBlocks(session) + 1, totalBlocks)} de ${totalBlocks}`;
 }
 
 /* ── Load cache & progress from localStorage ─────────────────── */
@@ -121,6 +131,11 @@ const $streamPreview     = IS_BROWSER ? document.getElementById("streamPreview")
 const $streamText        = IS_BROWSER ? document.getElementById("streamText") : null;
 const $errorBox          = IS_BROWSER ? document.getElementById("errorBox") : null;
 const $learningPathShell = IS_BROWSER ? document.getElementById("learningPathShell") : null;
+const $lessonShell       = IS_BROWSER ? document.getElementById("lessonShell") : null;
+const $lessonProgressBadge = IS_BROWSER ? document.getElementById("lessonProgressBadge") : null;
+const $lessonIdeaCard    = IS_BROWSER ? document.getElementById("lessonIdeaCard") : null;
+const $lessonIdeaSummary = IS_BROWSER ? document.getElementById("lessonIdeaSummary") : null;
+const $lessonIdeaAnalogy = IS_BROWSER ? document.getElementById("lessonIdeaAnalogy") : null;
 const $lessonContent     = IS_BROWSER ? document.getElementById("lessonContent") : null;
 const $progressOverlay   = IS_BROWSER ? document.getElementById("progressOverlay") : null;
 const $progressStats     = IS_BROWSER ? document.getElementById("progressStats") : null;
@@ -135,14 +150,14 @@ const $btnCloseGraph     = IS_BROWSER ? document.getElementById("btnCloseGraph")
 const $btnExportMd       = IS_BROWSER ? document.getElementById("btnExportMd") : null;
 
 function getTopicByLessonId(id) {
-  return TOPICS.find(topic => topic.lessons.some(lesson => lesson.id === id)) || null;
+  return TOPICS_DATA.find(topic => topic.lessons.some(lesson => lesson.id === id)) || null;
 }
 
 function getLessonState(id) {
   if (activeLesson?.id === id) return "active";
   if (progressData[id]?.mastered) return "mastered";
   if (progressData[id]?.practiceCount > 0) return "practiced";
-  if ((getMissingPrerequisites(id, progressData) || []).length === 0) return "ready";
+  if ((lookupMissingPrerequisites(id, progressData) || []).length === 0) return "ready";
   return "pending";
 }
 
@@ -154,8 +169,48 @@ function escapeHTML(text = "") {
     .replaceAll('"', "&quot;");
 }
 
+function formatRichText(text = "") {
+  return String(text).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+}
+
+function resetLessonShell() {
+  if (!$lessonShell) return;
+  $lessonShell.style.display = "none";
+  $lessonShell.classList.remove("is-secondary");
+  $lessonContent.innerHTML = "";
+  if ($lessonProgressBadge) {
+    $lessonProgressBadge.style.display = "none";
+    $lessonProgressBadge.textContent = "";
+  }
+  if ($lessonIdeaCard) $lessonIdeaCard.style.display = "none";
+  if ($lessonIdeaSummary) $lessonIdeaSummary.innerHTML = "";
+  if ($lessonIdeaAnalogy) {
+    $lessonIdeaAnalogy.style.display = "none";
+    $lessonIdeaAnalogy.innerHTML = "";
+  }
+}
+
+function setLessonShellState({ progressLabel = "", summary = "", analogy = "", secondary = false } = {}) {
+  if (!$lessonShell) return;
+  $lessonShell.style.display = "flex";
+  $lessonShell.classList.toggle("is-secondary", secondary);
+
+  if ($lessonProgressBadge) {
+    $lessonProgressBadge.textContent = progressLabel;
+    $lessonProgressBadge.style.display = progressLabel ? "inline-flex" : "none";
+  }
+
+  const hasIdea = Boolean(summary || analogy);
+  if ($lessonIdeaCard) $lessonIdeaCard.style.display = hasIdea ? "grid" : "none";
+  if ($lessonIdeaSummary) $lessonIdeaSummary.innerHTML = summary ? formatRichText(summary) : "";
+  if ($lessonIdeaAnalogy) {
+    $lessonIdeaAnalogy.innerHTML = analogy ? formatRichText(analogy) : "";
+    $lessonIdeaAnalogy.style.display = analogy ? "block" : "none";
+  }
+}
+
 function renderLessonChip(id, extraClass = "") {
-  const lesson = getLessonById(id);
+  const lesson = lookupLessonById(id);
   if (!lesson) return "";
   const state = getLessonState(id);
   return `
@@ -172,7 +227,7 @@ function buildNav(filter = "") {
   $nav.innerHTML = "";
   let total = 0, visible = 0;
 
-  TOPICS.forEach(topic => {
+  TOPICS_DATA.forEach(topic => {
     const filtered = filter
       ? topic.lessons.filter(l =>
           l.name.toLowerCase().includes(filter) ||
@@ -242,6 +297,7 @@ $search?.addEventListener("input", () => buildNav($search.value.trim().toLowerCa
 function selectLesson(lesson, topic) {
   if (isGenerating) return;
   activeLesson = lesson;
+  lessonSession = null;
 
   // update nav active state
   document.querySelectorAll(".lesson-item").forEach(el => {
@@ -268,9 +324,10 @@ function selectLesson(lesson, topic) {
   $heroProgress.style.display = "none";
   $btnGenerate.disabled = false;
   $btnGenerate.innerHTML = '<span class="btn-icon">✨</span><span class="btn-label">Generar Lección</span>';
+  resetLessonShell();
 
   // show preloaded or cached content
-  if (PRELOADED[lesson.id]) {
+  if (PRELOADED_DATA[lesson.id]) {
     renderPreloaded(lesson.id);
     renderLearningPathPanel();
     $btnCopy.style.display = "flex";
@@ -286,7 +343,6 @@ function selectLesson(lesson, topic) {
     updateMasteredButton(lesson.id);
   } else {
     renderLearningPathPanel();
-    $lessonContent.innerHTML = "";
     $btnCopy.style.display = "none";
     $btnMastered.style.display = "none";
   }
@@ -320,95 +376,149 @@ function updateNavMasteredIndicators() {
    RENDER — Pre-loaded structured data
 ══════════════════════════════════════════════════════════════ */
 function renderPreloaded(id) {
-  const d = PRELOADED[id];
-  $lessonContent.innerHTML = "";
-
-  // Objective
-  $lessonContent.appendChild(sectionCard(
-    "🎯 Objetivo",
-    `<div class="objective-text">${d.objective}</div>`
-  ));
-
-  // Concept
-  const conceptHTML = `
-    <div class="concept-body">
-      ${d.concept.map((p, i) => {
-        if (i === 0) return `<div class="analogy-pull">${p}</div>`;
-        return `<p>${p}</p>`;
-      }).join("")}
-      ${d.analogy ? `<div class="analogy-pull">${d.analogy}</div>` : ""}
-    </div>`;
-  $lessonContent.appendChild(sectionCard("💡 Concepto", conceptHTML));
-
-  // Definitions
-  const defHTML = `<ul class="def-list">${d.definitions.map((def, i) => `
-    <li class="def-item">
-      <div class="def-num">${i + 1}</div>
-      <div class="def-body"><span class="def-term">${def.term}:</span> ${def.def}</div>
-    </li>`).join("")}</ul>`;
-  $lessonContent.appendChild(sectionCard("🔑 Definiciones", defHTML));
-
-  // Formulas
-  const fmlHTML = `<div class="formula-grid">${d.formulas.map(f => `
-    <div class="formula-block">
-      <div class="formula-label">${f.label}</div>
-      ${f.math}
-      ${f.name ? `<div class="formula-name">${f.name}</div>` : ""}
-    </div>`).join("")}</div>`;
-  $lessonContent.appendChild(sectionCard("📐 Fórmulas Clave", fmlHTML));
-
-  // Examples
-  const exHTML = `<div class="examples-list">${d.examples.map(ex => `
-    <div class="example-card">
-      <div class="example-card-header">
-        <span class="example-label">${ex.label}</span>
-        <span class="difficulty diff-${ex.diff}">${ex.diffLabel}</span>
-      </div>
-      <div class="example-problem">${ex.problem}</div>
-      <div class="example-solution">
-        ${ex.steps.map((s, i) => `
-          <div class="step${ex.isResult?.[i] ? " result-step" : ""}">
-            <span class="step-n">${ex.isResult?.[i] ? "→" : (i+1)+"."}</span>
-            <span>${s}</span>
-          </div>`).join("")}
-      </div>
-    </div>`).join("")}</div>`;
-  $lessonContent.appendChild(sectionCard("✏️ Ejemplos Resueltos", exHTML));
-
-  // Exercises
-  const excsHTML = `<div class="exercises-grid">${d.exercises.map((e, i) => `
-    <div class="exercise-item" id="exc_${id}_${i}">
-      <div class="exercise-q" onclick="toggleExercise('exc_${id}_${i}')">
-        <span class="ex-n">${i + 1}.</span>
-        <span class="ex-text">${e.q}</span>
-        <span class="ex-toggle">▾</span>
-      </div>
-      <div class="exercise-ans">${e.a}</div>
-    </div>`).join("")}</div>`;
-  $lessonContent.appendChild(sectionCard("🏋️ Ejercicios de Práctica", excsHTML));
-
-  // Summary
-  const sumHTML = `<ul class="summary-list">${d.summary.map(s => `
-    <li class="summary-item">
-      <div class="summary-dot"></div>
-      <span>${s.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</span>
-    </li>`).join("")}</ul>`;
-  $lessonContent.appendChild(sectionCard("📝 Resumen", sumHTML));
-
-  // Multiple choice
-  if (d.mcq && d.mcq.length) {
-    const mcqCard = sectionCard("🔢 Opción Múltiple", '<div class="mcq-placeholder"></div>');
-    $lessonContent.appendChild(mcqCard);
-    renderMCQ(d.mcq, mcqCard.querySelector(".mcq-placeholder"));
+  const lesson = PRELOADED_DATA[id];
+  if (!lesson?.blocks?.length) {
+    renderParsed([]);
+    return;
   }
 
-  // Footer
+  lessonSession = createLessonSessionState(lesson);
+  renderGuidedLesson(lesson);
+}
+
+const GUIDED_BLOCK_META = {
+  concept: { kicker: "Concepto", className: "guided-block--concept" },
+  practice: { kicker: "Práctica", className: "guided-block--practice" },
+  application: { kicker: "Aplicación", className: "guided-block--application" },
+  recognition: { kicker: "Reconocimiento", className: "guided-block--recognition" },
+};
+
+function renderGuidedLesson(lesson) {
+  if (!lesson?.blocks?.length) return;
+
+  const totalBlocks = lesson.blocks.length;
+  const activeBlockIndex = getActiveGuidedBlockIndex(lessonSession, totalBlocks);
+
+  setLessonShellState({
+    progressLabel: getLessonBlockProgressLabel(lessonSession, totalBlocks),
+    summary: lesson.intro?.summary || "",
+    analogy: lesson.intro?.analogy || "",
+  });
+
+  $lessonContent.innerHTML = lesson.blocks.map((block, index) => {
+    return renderGuidedBlock(block, lessonSession[index], index, activeBlockIndex, totalBlocks);
+  }).join("");
+
   const footer = document.createElement("div");
   footer.className = "lesson-footer";
-  footer.textContent = `Cálculo II · ${id} · Contenido guiado por IA`;
+  footer.textContent = `Cálculo II · ${lesson.id} · Flujo guiado`;
   $lessonContent.appendChild(footer);
 
   triggerKaTeX();
+}
+
+function renderGuidedBlock(block, sessionState = {}, index, activeBlockIndex, totalBlocks) {
+  const meta = GUIDED_BLOCK_META[block.type] || { kicker: "Bloque", className: "" };
+  const isCompleted = !!(sessionState.completed || sessionState.solved);
+  const isCurrent = index === activeBlockIndex;
+  const isLocked = index > activeBlockIndex;
+  const statusLabel = isCompleted ? "Completado" : isCurrent ? "En curso" : "Bloqueado";
+
+  if (block.type === "practice") {
+    return renderPracticeBlock(block, sessionState, index, meta, { isCompleted, isCurrent, isLocked });
+  }
+
+  const content = Array.isArray(block.content) ? block.content : [];
+  const contentHTML = block.type === "recognition"
+    ? renderRecognitionBlockContent(block)
+    : content.map(item => `<p class="guided-copy">${formatRichText(item)}</p>`).join("");
+  const actionHTML = !isLocked && !isCompleted
+    ? `<button class="guided-action-button" type="button" data-guided-continue="${index}">${index === totalBlocks - 1 ? "Cerrar bloque" : "Continuar"}</button>`
+    : "";
+
+  return `
+    <section class="guided-block ${meta.className}${isCompleted ? " is-complete" : ""}${isCurrent ? " is-current" : ""}${isLocked ? " is-locked" : ""}">
+      <div class="guided-block-header">
+        <div class="guided-block-heading">
+          <span class="guided-block-step">${index + 1}</span>
+          <div>
+            <div class="guided-block-kicker">${meta.kicker}</div>
+            <h2 class="guided-block-title">${escapeHTML(block.title || `Bloque ${index + 1}`)}</h2>
+          </div>
+        </div>
+        <span class="guided-block-status">${statusLabel}</span>
+      </div>
+      ${isLocked ? '<div class="guided-block-locked">Se desbloquea cuando completes el bloque anterior.</div>' : `
+        <div class="guided-block-body">
+          ${contentHTML}
+          ${actionHTML}
+        </div>
+      `}
+    </section>`;
+}
+
+function renderRecognitionBlockContent(block) {
+  const content = Array.isArray(block.content) ? block.content : [];
+  const takeaway = block.takeaway || content[0] || "";
+  const remaining = block.takeaway ? content : content.slice(1);
+
+  return `
+    ${takeaway ? `<div class="takeaway-chip">${formatRichText(takeaway)}</div>` : ""}
+    ${remaining.length ? `<ul class="guided-points">${remaining.map(item => `<li>${formatRichText(item)}</li>`).join("")}</ul>` : ""}
+  `;
+}
+
+function renderPracticeBlock(block, sessionState = {}, index, meta, viewState) {
+  const feedbackState = getPracticeFeedbackState(sessionState);
+  const content = Array.isArray(block.content) ? block.content : [];
+  const choices = Array.isArray(block.choices) ? block.choices : [];
+  const choicesHTML = choices.map(choice => {
+    const isSelected = sessionState.selectedChoice === choice.id;
+    const isCorrect = sessionState.solved && choice.id === block.correctChoice;
+    const isIncorrect = !sessionState.solved && isSelected && sessionState.attempts > 0 && choice.id !== block.correctChoice;
+    const stateClass = [
+      "guided-choice",
+      isSelected ? "is-selected" : "",
+      isCorrect ? "is-correct" : "",
+      isIncorrect ? "is-incorrect" : "",
+    ].filter(Boolean).join(" ");
+
+    return `
+      <button
+        class="${stateClass}"
+        type="button"
+        data-guided-choice="${index}:${choice.id}"
+        aria-pressed="${isSelected ? "true" : "false"}"
+        ${viewState.isLocked || sessionState.solved ? "disabled" : ""}
+      >
+        <span class="guided-choice-label">${choice.id.toUpperCase()}</span>
+        <span>${formatRichText(choice.text)}</span>
+      </button>`;
+  }).join("");
+
+  return `
+    <section class="guided-block ${meta.className}${viewState.isCompleted ? " is-complete" : ""}${viewState.isCurrent ? " is-current" : ""}${viewState.isLocked ? " is-locked" : ""}">
+      <div class="guided-block-header">
+        <div class="guided-block-heading">
+          <span class="guided-block-step">${index + 1}</span>
+          <div>
+            <div class="guided-block-kicker">${meta.kicker}</div>
+            <h2 class="guided-block-title">${escapeHTML(block.title || `Bloque ${index + 1}`)}</h2>
+          </div>
+        </div>
+        <span class="guided-block-status">${viewState.isCompleted ? "Resuelto" : viewState.isCurrent ? "Responde" : "Bloqueado"}</span>
+      </div>
+      ${viewState.isLocked ? '<div class="guided-block-locked">Resuelve el bloque actual para desbloquear esta práctica.</div>' : `
+        <div class="guided-block-body">
+          ${content.length ? `<div class="guided-practice-prep">${content.map(item => `<p class="guided-copy">${formatRichText(item)}</p>`).join("")}</div>` : ""}
+          <p class="guided-practice-prompt">${formatRichText(block.prompt || "")}</p>
+          <div class="guided-choice-list">${choicesHTML}</div>
+          ${sessionState.solved ? `<div class="guided-feedback-card is-correct">${formatRichText(block.correctMessage || "Correcto.")}</div>` : ""}
+          ${(feedbackState === "hint" || feedbackState === "walkthrough") && block.hint ? `<div class="guided-feedback-card is-hint"><div class="guided-feedback-kicker">Pista</div>${formatRichText(block.hint)}</div>` : ""}
+          ${feedbackState === "walkthrough" && block.walkthrough ? `<div class="guided-feedback-card is-walkthrough"><div class="guided-feedback-kicker">Desarrollo guiado</div>${formatRichText(block.walkthrough)}</div>` : ""}
+        </div>
+      `}
+    </section>`;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -435,8 +545,24 @@ function parseSections(text) {
 }
 
 function renderParsed(sections) {
-  $lessonContent.innerHTML = "";
-  if (!sections.length) return;
+  setLessonShellState({ secondary: true });
+  $lessonContent.innerHTML = `
+    <section class="lecture-fallback">
+      <div class="lecture-fallback-kicker">Formato secundario</div>
+      <h2 class="lecture-fallback-title">Lección generada en modo conferencia</h2>
+      <p class="lecture-fallback-copy">La lección generada aún no usa el schema guiado de <code>intro</code> y <code>blocks</code>, así que se muestra en un formato clásico de lectura.</p>
+    </section>`;
+
+  const stack = document.createElement("div");
+  stack.className = "lecture-fallback-stack";
+  $lessonContent.appendChild(stack);
+
+  if (!sections.length) {
+    const rawFallback = document.createElement("div");
+    rawFallback.className = "lecture-raw-fallback";
+    rawFallback.textContent = generatedCache[activeLesson?.id] || "No se pudo interpretar la lección generada.";
+    stack.appendChild(rawFallback);
+  }
 
   sections.forEach(sec => {
     const meta = SECTION_META[sec.title] || { color: "#7a90a8", accent: "#7a90a8" };
@@ -454,11 +580,11 @@ function renderParsed(sections) {
       if (sec.title === "🏋️ Ejercicios de Práctica") {
         bodyHTML = `<div class="exercises-grid">${items.map((it, i) => `
           <div class="exercise-item" id="ex_gen_${i}">
-            <div class="exercise-q" onclick="toggleExercise('ex_gen_${i}')">
+            <button class="exercise-q" type="button" data-exercise-toggle="ex_gen_${i}">
               <span class="ex-n">${it.n}.</span>
               <span class="ex-text">${it.text}</span>
               <span class="ex-toggle">▾</span>
-            </div>
+            </button>
             <div class="exercise-ans"><em>Ver soluciones ↓</em></div>
           </div>`).join("")}</div>`;
       } else {
@@ -482,7 +608,7 @@ function renderParsed(sections) {
       const parsed = parseMCQSection(sec.content);
       if (parsed.length) {
         const mcqCard = sectionCard(sec.title, '<div class="mcq-placeholder"></div>', meta.color);
-        $lessonContent.appendChild(mcqCard);
+        stack.appendChild(mcqCard);
         renderMCQ(parsed, mcqCard.querySelector(".mcq-placeholder"));
       }
       return; // skip normal append below
@@ -495,12 +621,12 @@ function renderParsed(sections) {
       bodyHTML = `<div>${paras.join("")}</div>`;
     }
 
-    $lessonContent.appendChild(sectionCard(sec.title, bodyHTML, meta.color));
+    stack.appendChild(sectionCard(sec.title, bodyHTML, meta.color));
   });
 
   const footer = document.createElement("div");
   footer.className = "lesson-footer";
-  footer.textContent = `Cálculo II · ${activeLesson?.id} · Generado con IA`;
+  footer.textContent = `Cálculo II · ${activeLesson?.id} · Generado con IA · fallback de lectura`;
   $lessonContent.appendChild(footer);
 
   triggerKaTeX();
@@ -525,8 +651,33 @@ function sectionCard(title, bodyHTML, colorOverride) {
 function toggleExercise(id) {
   document.getElementById(id)?.classList.toggle("open");
 }
-if (IS_BROWSER) {
-  window.toggleExercise = toggleExercise; // expose for inline onclick
+
+function handleGuidedContinue(blockIndex) {
+  const lesson = activeLesson ? PRELOADED_DATA[activeLesson.id] : null;
+  if (!lesson?.blocks?.[blockIndex] || !lessonSession?.[blockIndex]) return;
+
+  const block = lesson.blocks[blockIndex];
+  if (block.type === "practice") return;
+
+  lessonSession[blockIndex].completed = true;
+  renderGuidedLesson(lesson);
+}
+
+function handleGuidedChoice(blockIndex, choiceId) {
+  const lesson = activeLesson ? PRELOADED_DATA[activeLesson.id] : null;
+  const block = lesson?.blocks?.[blockIndex];
+  const blockState = lessonSession?.[blockIndex];
+  if (!block || block.type !== "practice" || !blockState || blockState.solved) return;
+
+  blockState.selectedChoice = choiceId;
+  blockState.attempts = (blockState.attempts || 0) + 1;
+
+  if (choiceId === block.correctChoice) {
+    blockState.solved = true;
+    blockState.completed = true;
+  }
+
+  renderGuidedLesson(lesson);
 }
 
 /* ── Trigger KaTeX rendering ────────────────────────────────── */
@@ -549,10 +700,10 @@ function renderLearningPathPanel() {
     return;
   }
 
-  const prerequisites = getPrerequisites(activeLesson.id);
-  const dependents = getDependents(activeLesson.id);
-  const recommended = getRecommendedNext(activeLesson.id).filter(id => id !== activeLesson.id).slice(0, 4);
-  const missing = getMissingPrerequisites(activeLesson.id, progressData);
+  const prerequisites = lookupPrerequisites(activeLesson.id);
+  const dependents = lookupDependents(activeLesson.id);
+  const recommended = lookupRecommendedNext(activeLesson.id).filter(id => id !== activeLesson.id).slice(0, 4);
+  const missing = lookupMissingPrerequisites(activeLesson.id, progressData);
   const prereqDone = prerequisites.length - missing.length;
 
   $learningPathShell.style.display = "block";
@@ -570,7 +721,7 @@ function renderLearningPathPanel() {
         <div class="path-summary-chip"><strong>${dependents.length}</strong><span> contenidos que desbloquea</span></div>
         <div class="path-summary-chip"><strong>${recommended.length}</strong><span> siguientes sugeridos</span></div>
       </div>
-      ${missing.length ? `<div class="path-alert">Antes de profundizar en <strong>${escapeHTML(activeLesson.name)}</strong>, conviene repasar: ${missing.map(id => escapeHTML(getLessonById(id)?.name || id)).join(", ")}.</div>` : `<div class="path-alert is-positive">Ya tienes cubiertos los prerrequisitos directos de esta lección.</div>`}
+      ${missing.length ? `<div class="path-alert">Antes de profundizar en <strong>${escapeHTML(activeLesson.name)}</strong>, conviene repasar: ${missing.map(id => escapeHTML(lookupLessonById(id)?.name || id)).join(", ")}.</div>` : `<div class="path-alert is-positive">Ya tienes cubiertos los prerrequisitos directos de esta lección.</div>`}
       <div class="path-graph">
         <div class="path-column">
           <div class="path-column-title">Antes de esta lección</div>
@@ -601,8 +752,8 @@ function renderLearningPathPanel() {
 }
 
 function renderGlobalGraph() {
-  const lessons = TOPICS.flatMap(topic => topic.lessons);
-  const readyCount = lessons.filter(lesson => getMissingPrerequisites(lesson.id, progressData).length === 0).length;
+  const lessons = TOPICS_DATA.flatMap(topic => topic.lessons);
+  const readyCount = lessons.filter(lesson => lookupMissingPrerequisites(lesson.id, progressData).length === 0).length;
   const masteredCount = lessons.filter(lesson => progressData[lesson.id]?.mastered).length;
 
   $graphSummary.innerHTML = `
@@ -613,7 +764,7 @@ function renderGlobalGraph() {
     </div>
     <p class="graph-summary-text">Cada tarjeta muestra sus prerrequisitos directos. Haz clic en cualquier contenido para abrirlo.</p>`;
 
-  $graphMapWrap.innerHTML = TOPICS.map(topic => `
+  $graphMapWrap.innerHTML = TOPICS_DATA.map(topic => `
     <section class="graph-topic">
       <header class="graph-topic-header">
         <span>${topic.icon}</span>
@@ -644,7 +795,7 @@ function renderGlobalGraph() {
 }
 
 function jumpToLesson(lessonId) {
-  const lesson = getLessonById(lessonId);
+  const lesson = lookupLessonById(lessonId);
   const topic = getTopicByLessonId(lessonId);
   if (!lesson || !topic) return;
   $graphOverlay.style.display = "none";
@@ -718,7 +869,7 @@ $btnGenerate?.addEventListener("click", async () => {
   isGenerating = true;
   $btnGenerate.disabled = true;
   $btnGenerate.innerHTML = '<span class="btn-icon">⟳</span><span class="btn-label">Generando…</span>';
-  $lessonContent.innerHTML = "";
+  resetLessonShell();
   $streamPreview.style.display = "block";
   $streamText.textContent = "";
   $errorBox.style.display = "none";
@@ -814,6 +965,26 @@ if (IS_BROWSER) {
     if (!trigger) return;
     jumpToLesson(trigger.dataset.lessonJump);
   });
+
+  $lessonContent?.addEventListener("click", event => {
+    const choiceButton = event.target.closest("[data-guided-choice]");
+    if (choiceButton) {
+      const [blockIndex, choiceId] = choiceButton.dataset.guidedChoice.split(":");
+      handleGuidedChoice(Number(blockIndex), choiceId);
+      return;
+    }
+
+    const continueButton = event.target.closest("[data-guided-continue]");
+    if (continueButton) {
+      handleGuidedContinue(Number(continueButton.dataset.guidedContinue));
+      return;
+    }
+
+    const exerciseButton = event.target.closest("[data-exercise-toggle]");
+    if (exerciseButton) {
+      toggleExercise(exerciseButton.dataset.exerciseToggle);
+    }
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -867,7 +1038,8 @@ function renderMCQ(mcqArray, parentEl) {
     const LETTERS = ["A", "B", "C", "D"];
 
     q.options.forEach((opt, oi) => {
-      const btn = document.createElement("div");
+      const btn = document.createElement("button");
+      btn.type = "button";
       btn.className = "mcq-option";
       btn.dataset.index = oi;
       btn.innerHTML = `<span class="mcq-option-letter">${LETTERS[oi]}</span><span>${opt}</span>`;
@@ -914,6 +1086,7 @@ function handleMCQSelect(itemEl, chosen, correct) {
     feedback.textContent = `✗ Incorrecto — la respuesta correcta era ${LETTERS[correct]})`;
     feedback.style.color = "var(--pink)";
   }
+  options.forEach(option => { option.disabled = true; });
   feedback.style.display = "block";
 }
 
@@ -962,7 +1135,7 @@ $progressOverlay?.addEventListener("click", e => {
 $btnExportMd?.addEventListener("click", exportProgressMarkdown);
 
 function renderProgressModal() {
-  const allLessons = TOPICS.flatMap(t => t.lessons);
+  const allLessons = TOPICS_DATA.flatMap(t => t.lessons);
   const total = allLessons.length;
   const masteredCount = Object.values(progressData).filter(e => e.mastered).length;
   const practicedCount = Object.values(progressData).filter(e => e.practiceCount > 0).length;
@@ -990,7 +1163,7 @@ function renderProgressModal() {
 
   let html = '<table class="progress-table"><thead><tr><th>ID</th><th>Lección</th><th>Última práctica</th><th>Sesiones</th><th>Estado</th></tr></thead><tbody>';
 
-  TOPICS.forEach(topic => {
+  TOPICS_DATA.forEach(topic => {
     const topicLessons = topic.lessons.filter(l => progressData[l.id]?.practiceCount > 0);
     if (!topicLessons.length) return;
     // mastered first, then by lastPracticed
@@ -1023,7 +1196,7 @@ function renderProgressModal() {
 
 function exportProgressMarkdown() {
   const today = new Date().toISOString().slice(0, 10);
-  const allLessons = TOPICS.flatMap(t => t.lessons);
+  const allLessons = TOPICS_DATA.flatMap(t => t.lessons);
   const total = allLessons.length;
   const masteredCount = Object.values(progressData).filter(e => e.mastered).length;
   const practicedCount = Object.values(progressData).filter(e => e.practiceCount > 0).length;
@@ -1034,7 +1207,7 @@ function exportProgressMarkdown() {
   md += `- **Lecciones practicadas:** ${practicedCount} / ${total}\n`;
   md += `- **Sesiones totales:** ${totalSessions}\n\n---\n\n`;
 
-  TOPICS.forEach(topic => {
+  TOPICS_DATA.forEach(topic => {
     const topicLessons = topic.lessons.filter(l => progressData[l.id]?.practiceCount > 0);
     if (!topicLessons.length) return;
     topicLessons.sort((a, b) => {
@@ -1079,5 +1252,7 @@ if (IS_NODE) {
     getPracticeFeedbackState,
     createLessonSessionState,
     countCompletedBlocks,
+    getActiveGuidedBlockIndex,
+    getLessonBlockProgressLabel,
   };
 }
