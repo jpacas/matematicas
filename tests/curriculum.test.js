@@ -42,25 +42,58 @@ test("recommended path flows across the curriculum", () => {
 });
 
 test("preloaded guided lessons expose teaching blocks with practice metadata", () => {
-  const guided = Object.values(PRELOADED);
-  assert.ok(guided.length > 0);
+  const guidedEntries = Object.entries(PRELOADED);
+  assert.ok(guidedEntries.length > 0);
 
-  for (const lesson of guided) {
+  for (const [lessonId, lesson] of guidedEntries) {
+    assert.ok(getLessonById(lessonId), `missing lesson id ${lessonId}`);
+    assert.equal(lesson.id, lessonId);
+    assert.equal(typeof lesson.objective, "string");
+    assert.ok(lesson.objective.length > 0);
+    assert.equal(typeof lesson.intro?.summary, "string");
+    assert.ok(lesson.intro.summary.length > 0);
+    assert.equal(typeof lesson.intro?.analogy, "string");
+    assert.ok(lesson.intro.analogy.length > 0);
+
     assert.ok(Array.isArray(lesson.blocks));
     assert.ok(lesson.blocks.length > 0);
 
     const practiceBlock = lesson.blocks.find(block => block.type === "practice");
     assert.ok(practiceBlock, "expected a practice block");
+    assert.equal(typeof practiceBlock.source, "string");
+    assert.ok(practiceBlock.source.length > 0);
+    assert.ok(Array.isArray(practiceBlock.sourceRefs));
+    assert.ok(practiceBlock.sourceRefs.length > 0);
     assert.equal(typeof practiceBlock.prompt, "string");
+    assert.ok(practiceBlock.prompt.length > 0);
     assert.ok(Array.isArray(practiceBlock.choices));
     assert.ok(practiceBlock.choices.length >= 2);
+    assert.ok(practiceBlock.choices.every(choice => typeof choice === "object" && choice !== null));
+    assert.ok(practiceBlock.choices.every(choice => typeof choice.id === "string" && choice.id.length > 0));
+    assert.ok(practiceBlock.choices.every(choice => typeof choice.text === "string" && choice.text.length > 0));
+    assert.equal(typeof practiceBlock.correctChoice, "string");
+    assert.ok(practiceBlock.choices.some(choice => choice.id === practiceBlock.correctChoice));
     assert.equal(typeof practiceBlock.correctMessage, "string");
+    assert.ok(practiceBlock.correctMessage.length > 0);
     assert.equal(typeof practiceBlock.hint, "string");
+    assert.ok(practiceBlock.hint.length > 0);
     assert.equal(typeof practiceBlock.walkthrough, "string");
+    assert.ok(practiceBlock.walkthrough.length > 0);
 
     for (const block of lesson.blocks) {
       assert.match(block.type, /^(concept|practice|application|recognition)$/);
       assert.equal(typeof block.title, "string");
+      assert.ok(block.title.length > 0);
+      assert.equal(typeof block.source, "string");
+      assert.ok(block.source.length > 0);
+      assert.ok(Array.isArray(block.sourceRefs));
+      assert.ok(block.sourceRefs.length > 0);
+      if (block.type === "practice") {
+        continue;
+      }
+      assert.ok(Array.isArray(block.content));
+      assert.ok(block.content.length > 0);
+      assert.ok(block.content.every(item => typeof item === "string" && item.length > 0));
     }
   }
 });

@@ -434,6 +434,7 @@ function getMissingPrerequisites(id, progressData = {}) {
 /* Pre-generated demo lesson (Integration by Parts) */
 const PRELOADED = {
   "1.5.1": {
+    id: "1.5.1",
     objective: "Aprender a calcular integrales de <strong>productos de funciones</strong> usando la fórmula $\\int u\\,dv = uv - \\int v\\,du$, y desarrollar intuición para elegir $u$ y $dv$ correctamente.",
     intro: {
       summary: "La integración por partes convierte productos difíciles en una secuencia de pasos manejables.",
@@ -517,6 +518,8 @@ const PRELOADED = {
       {
         type: "concept",
         title: "Idea central",
+        source: "concept",
+        sourceRefs: ["concept", "objective"],
         content: [
           "La integración por partes reorganiza un producto para que una parte quede más simple al integrarse.",
           "Su fórmula nace directamente de la regla del producto de derivadas.",
@@ -525,12 +528,15 @@ const PRELOADED = {
       {
         type: "practice",
         title: "Elegir $u$ y $dv$",
+        source: "summary",
+        sourceRefs: ["summary", "definitions"],
         prompt: "Para la integral $\\int x e^x\\,dx$, decide qué conviene elegir como $u$ y qué conviene elegir como $dv$.",
         choices: [
-          "$u = x$, $dv = e^x\\,dx$",
-          "$u = e^x$, $dv = x\\,dx$",
-          "$u = x e^x$, $dv = dx$",
+          { id: "a", text: "$u = x$, $dv = e^x\\,dx$" },
+          { id: "b", text: "$u = e^x$, $dv = x\\,dx$" },
+          { id: "c", text: "$u = x e^x$, $dv = dx$" },
         ],
+        correctChoice: "a",
         correctMessage: "Correcto: conviene tomar $u = x$ porque su derivada simplifica la integral.",
         hint: "Aplica LIATE: una función algebraica suele ir antes que una exponencial.",
         walkthrough: "Elige $u = x$ y $dv = e^x\\,dx$, luego calcula $du = dx$ y $v = e^x$ para aplicar $\\int u\\,dv = uv - \\int v\\,du$.",
@@ -542,6 +548,8 @@ const PRELOADED = {
       {
         type: "application",
         title: "Ejemplos resueltos",
+        source: "examples",
+        sourceRefs: ["examples[0]", "examples[1]", "examples[2]", "examples[3]"],
         content: [
           "Resuelve integrales que requieren una sola aplicación, varias aplicaciones y casos cíclicos.",
           "Observa cómo se reutiliza la técnica cuando la integral reaparece.",
@@ -550,6 +558,8 @@ const PRELOADED = {
       {
         type: "recognition",
         title: "Cuándo usarla",
+        source: "summary",
+        sourceRefs: ["summary", "concept"],
         content: [
           "El método es útil cuando ves un producto de funciones y la sustitución no encaja.",
           "Suele funcionar bien con polinomios por un lado y exponenciales, logaritmos o trigonométricas por el otro.",
