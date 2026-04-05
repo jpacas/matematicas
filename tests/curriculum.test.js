@@ -113,22 +113,46 @@ test("guided practice escalates from neutral to hint to walkthrough", () => {
   assert.equal(getPracticeFeedbackState({ attempts: 1, solved: true }), "correct");
 });
 
-test("guided lesson session state initializes per block and counts completed progress", () => {
-  const session = createLessonSessionState(PRELOADED["1.5.1"]);
+test("guided lesson session state derives defaults from mixed block types", () => {
+  const lesson = {
+    blocks: [
+      { type: "practice", title: "Primera práctica" },
+      { type: "concept", title: "Idea clave" },
+      { type: "recognition", title: "Patrón" },
+      { type: "practice", title: "Segunda práctica" },
+      { type: "application", title: "Aplicación" },
+    ],
+  };
 
-  assert.equal(session.length, PRELOADED["1.5.1"].blocks.length);
-  assert.deepEqual(session[0], { completed: false });
-  assert.deepEqual(session[1], {
+  const session = createLessonSessionState(lesson);
+
+  assert.deepEqual(session, [
+    { attempts: 0, completed: false, selectedChoice: null, solved: false },
+    { completed: false },
+    { completed: false },
+    { attempts: 0, completed: false, selectedChoice: null, solved: false },
+    { completed: false },
+  ]);
+
+  session[0].attempts = 2;
+  session[0].selectedChoice = "a";
+
+  assert.deepEqual(session[3], {
     attempts: 0,
     completed: false,
     selectedChoice: null,
     solved: false,
   });
-  assert.equal(countCompletedBlocks(session), 0);
+});
 
-  session[0].completed = true;
-  session[1].solved = true;
-  session[2].completed = true;
+test("completed block count totals solved practice blocks and completed reading blocks", () => {
+  const session = [
+    { attempts: 1, completed: false, selectedChoice: "a", solved: true },
+    { completed: true },
+    { completed: false },
+    { attempts: 2, completed: false, selectedChoice: "b", solved: false },
+    { completed: true },
+  ];
 
   assert.equal(countCompletedBlocks(session), 3);
 });
