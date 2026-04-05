@@ -42,6 +42,26 @@ body {
   overflow: hidden;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+button:focus-visible,
+input:focus-visible,
+.guided-block:focus-visible {
+  outline: 3px solid rgba(37,99,168,.42);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(37,99,168,.14);
+}
+
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -130,6 +150,10 @@ body {
 
 .search-input::placeholder { color: var(--text-faint); }
 .search-input:focus { border-color: var(--border2); }
+.search-input:focus-visible {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 4px rgba(37,99,168,.14);
+}
 
 /* Nav */
 .lesson-nav {
@@ -843,6 +867,13 @@ body {
   white-space: pre-wrap;
   color: var(--text-dim);
   line-height: 1.75;
+}
+
+.lecture-raw-fallback.is-inline {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 /* ── Section card ── */

@@ -36,6 +36,7 @@ let generatedCache = {}; // { lessonId: rawText }
 let progressData  = {}; // { lessonId: { mastered, masteredAt, lastPracticed, practiceCount } }
 let isGenerating = false;
 let lessonSession = null;
+let lessonInteractionRecorded = false;
 
 function getPracticeFeedbackState(session = {}) {
   if (session.solved) return "correct";
@@ -113,6 +114,12 @@ function recordPractice(id) {
   saveProgress();
 }
 
+function recordMeaningfulPractice(id = activeLesson?.id) {
+  if (!id || lessonInteractionRecorded) return;
+  recordPractice(id);
+  lessonInteractionRecorded = true;
+}
+
 /* ── DOM refs ───────────────────────────────────────────────── */
 const $nav               = IS_BROWSER ? document.getElementById("lessonNav") : null;
 const $search            = IS_BROWSER ? document.getElementById("search") : null;
@@ -136,6 +143,7 @@ const $lessonProgressBadge = IS_BROWSER ? document.getElementById("lessonProgres
 const $lessonIdeaCard    = IS_BROWSER ? document.getElementById("lessonIdeaCard") : null;
 const $lessonIdeaSummary = IS_BROWSER ? document.getElementById("lessonIdeaSummary") : null;
 const $lessonIdeaAnalogy = IS_BROWSER ? document.getElementById("lessonIdeaAnalogy") : null;
+const $lessonAssistiveStatus = IS_BROWSER ? document.getElementById("lessonAssistiveStatus") : null;
 const $lessonContent     = IS_BROWSER ? document.getElementById("lessonContent") : null;
 const $progressOverlay   = IS_BROWSER ? document.getElementById("progressOverlay") : null;
 const $progressStats     = IS_BROWSER ? document.getElementById("progressStats") : null;
@@ -173,11 +181,108 @@ function formatRichText(text = "") {
   return String(text).replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 }
 
+function formatAnnouncementText(text = "") {
+  return String(text)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function announceLessonStatus(message = "") {
+  if (!IS_BROWSER || !$lessonAssistiveStatus || !message) return;
+  $lessonAssistiveStatus.textContent = "";
+  window.setTimeout(() => {
+    if ($lessonAssistiveStatus) $lessonAssistiveStatus.textContent = message;
+  }, 0);
+}
+
+function resolveGuidedFocusTarget(focusRequest = null) {
+  if (!IS_BROWSER || !$lessonContent || !focusRequest) return null;
+
+  const getBlockTarget = blockIndex => {
+    const block = $lessonContent.querySelector(`[data-guided-block-index="${blockIndex}"]`);
+    if (!block) return null;
+    return block.querySelector("button:not([disabled])") || block;
+  };
+
+  if (focusRequest.type === "choice") {
+    const choiceTarget = $lessonContent.querySelector(`[data-guided-choice="${focusRequest.blockIndex}:${focusRequest.choiceId}"]:not([disabled])`);
+    if (choiceTarget) return choiceTarget;
+    return getBlockTarget(focusRequest.blockIndex);
+  }
+
+  if (focusRequest.type === "block") {
+    return getBlockTarget(focusRequest.blockIndex);
+  }
+
+  const activeBlock = $lessonContent.querySelector(".guided-block.is-current");
+  if (!activeBlock) return null;
+  return activeBlock.querySelector("button:not([disabled])") || activeBlock;
+}
+
+function restoreGuidedFocus(focusRequest = null) {
+  if (!IS_BROWSER || !focusRequest) return;
+  window.requestAnimationFrame(() => {
+    const target = resolveGuidedFocusTarget(focusRequest);
+    if (target && typeof target.focus === "function") target.focus();
+  });
+}
+
+function renderLectureParagraphsHTML(content = "") {
+  const paragraphs = String(content).trim()
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .split(/\n{2,}/)
+    .map(paragraph => paragraph.trim())
+    .filter(Boolean)
+    .map(paragraph => `<p style="margin-bottom:12px;font-size:15px;line-height:1.8;color:var(--text-dim)">${paragraph}</p>`);
+
+  return paragraphs.length ? `<div>${paragraphs.join("")}</div>` : renderLectureRawHTML(content);
+}
+
+function renderLectureRawHTML(content = "") {
+  return `<div class="lecture-raw-fallback is-inline">${escapeHTML(String(content).trim())}</div>`;
+}
+
+function parseGeneratedLessonContent(text = "") {
+  const rawText = String(text || "");
+  const pattern = new RegExp(
+    `(${SECTION_HEADERS.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
+    "g"
+  );
+  const parts = rawText.split(pattern);
+  const sections = [];
+  let current = null;
+
+  for (const part of parts) {
+    if (!part) continue;
+
+    if (SECTION_META[part]) {
+      if (current) sections.push(current);
+      current = { kind: "section", title: part, content: "" };
+      continue;
+    }
+
+    if (current) {
+      current.content += part;
+      continue;
+    }
+
+    if (part.trim()) {
+      sections.push({ kind: "raw", title: "Texto original", content: part });
+    }
+  }
+
+  if (current) sections.push(current);
+
+  return { rawText, sections };
+}
+
 function resetLessonShell() {
   if (!$lessonShell) return;
   $lessonShell.style.display = "none";
   $lessonShell.classList.remove("is-secondary");
   $lessonContent.innerHTML = "";
+  if ($lessonAssistiveStatus) $lessonAssistiveStatus.textContent = "";
   if ($lessonProgressBadge) {
     $lessonProgressBadge.style.display = "none";
     $lessonProgressBadge.textContent = "";
@@ -298,6 +403,7 @@ function selectLesson(lesson, topic) {
   if (isGenerating) return;
   activeLesson = lesson;
   lessonSession = null;
+  lessonInteractionRecorded = false;
 
   // update nav active state
   document.querySelectorAll(".lesson-item").forEach(el => {
@@ -332,14 +438,12 @@ function selectLesson(lesson, topic) {
     renderLearningPathPanel();
     $btnCopy.style.display = "flex";
     $btnMastered.style.display = "flex";
-    recordPractice(lesson.id);
     updateMasteredButton(lesson.id);
   } else if (generatedCache[lesson.id]) {
-    renderParsed(parseSections(generatedCache[lesson.id]));
+    renderParsed(parseGeneratedLessonContent(generatedCache[lesson.id]));
     renderLearningPathPanel();
     $btnCopy.style.display = "flex";
     $btnMastered.style.display = "flex";
-    recordPractice(lesson.id);
     updateMasteredButton(lesson.id);
   } else {
     renderLearningPathPanel();
@@ -393,7 +497,7 @@ const GUIDED_BLOCK_META = {
   recognition: { kicker: "Reconocimiento", className: "guided-block--recognition" },
 };
 
-function renderGuidedLesson(lesson) {
+function renderGuidedLesson(lesson, uiState = {}) {
   if (!lesson?.blocks?.length) return;
 
   const totalBlocks = lesson.blocks.length;
@@ -415,6 +519,8 @@ function renderGuidedLesson(lesson) {
   $lessonContent.appendChild(footer);
 
   triggerKaTeX();
+  restoreGuidedFocus(uiState.focusRequest || null);
+  announceLessonStatus(uiState.announcement || "");
 }
 
 function renderGuidedBlock(block, sessionState = {}, index, activeBlockIndex, totalBlocks) {
@@ -437,7 +543,7 @@ function renderGuidedBlock(block, sessionState = {}, index, activeBlockIndex, to
     : "";
 
   return `
-    <section class="guided-block ${meta.className}${isCompleted ? " is-complete" : ""}${isCurrent ? " is-current" : ""}${isLocked ? " is-locked" : ""}">
+    <section class="guided-block ${meta.className}${isCompleted ? " is-complete" : ""}${isCurrent ? " is-current" : ""}${isLocked ? " is-locked" : ""}" data-guided-block-index="${index}" tabindex="-1">
       <div class="guided-block-header">
         <div class="guided-block-heading">
           <span class="guided-block-step">${index + 1}</span>
@@ -497,7 +603,7 @@ function renderPracticeBlock(block, sessionState = {}, index, meta, viewState) {
   }).join("");
 
   return `
-    <section class="guided-block ${meta.className}${viewState.isCompleted ? " is-complete" : ""}${viewState.isCurrent ? " is-current" : ""}${viewState.isLocked ? " is-locked" : ""}">
+    <section class="guided-block ${meta.className}${viewState.isCompleted ? " is-complete" : ""}${viewState.isCurrent ? " is-current" : ""}${viewState.isLocked ? " is-locked" : ""}" data-guided-block-index="${index}" tabindex="-1">
       <div class="guided-block-header">
         <div class="guided-block-heading">
           <span class="guided-block-step">${index + 1}</span>
@@ -525,26 +631,15 @@ function renderPracticeBlock(block, sessionState = {}, index, meta, viewState) {
    RENDER — Parsed sections from raw AI text
 ══════════════════════════════════════════════════════════════ */
 function parseSections(text) {
-  const pattern = new RegExp(
-    `(${SECTION_HEADERS.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
-    "g"
-  );
-  const parts = text.split(pattern);
-  const sections = [];
-  let current = null;
-  for (const part of parts) {
-    if (SECTION_META[part]) {
-      if (current) sections.push(current);
-      current = { title: part, content: "" };
-    } else if (current) {
-      current.content += part;
-    }
-  }
-  if (current) sections.push(current);
-  return sections;
+  return parseGeneratedLessonContent(text).sections;
 }
 
-function renderParsed(sections) {
+function renderParsed(parsedLesson) {
+  const parsedModel = Array.isArray(parsedLesson)
+    ? { rawText: generatedCache[activeLesson?.id] || "", sections: parsedLesson }
+    : (parsedLesson || { rawText: "", sections: [] });
+  const sections = Array.isArray(parsedModel.sections) ? parsedModel.sections : [];
+
   setLessonShellState({ secondary: true });
   $lessonContent.innerHTML = `
     <section class="lecture-fallback">
@@ -557,14 +652,19 @@ function renderParsed(sections) {
   stack.className = "lecture-fallback-stack";
   $lessonContent.appendChild(stack);
 
-  if (!sections.length) {
+  if (!sections.length && parsedModel.rawText.trim()) {
     const rawFallback = document.createElement("div");
     rawFallback.className = "lecture-raw-fallback";
-    rawFallback.textContent = generatedCache[activeLesson?.id] || "No se pudo interpretar la lección generada.";
+    rawFallback.textContent = parsedModel.rawText;
     stack.appendChild(rawFallback);
   }
 
   sections.forEach(sec => {
+    if (sec.kind === "raw") {
+      stack.appendChild(sectionCard(sec.title || "Texto original", renderLectureRawHTML(sec.content), "#7a90a8"));
+      return;
+    }
+
     const meta = SECTION_META[sec.title] || { color: "#7a90a8", accent: "#7a90a8" };
     let bodyHTML = "";
 
@@ -577,7 +677,9 @@ function renderParsed(sections) {
         if (m) items.push({ n: m[1], text: m[2].trim() });
       });
 
-      if (sec.title === "🏋️ Ejercicios de Práctica") {
+      if (!items.length) {
+        bodyHTML = renderLectureRawHTML(sec.content);
+      } else if (sec.title === "🏋️ Ejercicios de Práctica") {
         bodyHTML = `<div class="exercises-grid">${items.map((it, i) => `
           <div class="exercise-item" id="ex_gen_${i}">
             <button class="exercise-q" type="button" data-exercise-toggle="ex_gen_${i}">
@@ -597,28 +699,25 @@ function renderParsed(sections) {
     } else if (sec.title === "📝 Resumen") {
       const lines = sec.content.trim().split("\n").filter(l => l.trim().match(/^[-•*]|\d+\./));
       const items = lines.map(l => l.replace(/^[-•*\d.]\s*/, "").trim());
-      bodyHTML = `<ul class="summary-list">${items.map(it => `
+      bodyHTML = items.length ? `<ul class="summary-list">${items.map(it => `
         <li class="summary-item">
           <div class="summary-dot"></div>
           <span>${it}</span>
-        </li>`).join("")}</ul>`;
+        </li>`).join("")}</ul>` : renderLectureRawHTML(sec.content);
     } else if (sec.title === "🎯 Objetivo") {
-      bodyHTML = `<div class="objective-text">${sec.content.trim()}</div>`;
+      bodyHTML = sec.content.trim() ? `<div class="objective-text">${sec.content.trim()}</div>` : renderLectureRawHTML(sec.content);
     } else if (sec.title === "🔢 Opción Múltiple") {
       const parsed = parseMCQSection(sec.content);
       if (parsed.length) {
         const mcqCard = sectionCard(sec.title, '<div class="mcq-placeholder"></div>', meta.color);
         stack.appendChild(mcqCard);
         renderMCQ(parsed, mcqCard.querySelector(".mcq-placeholder"));
+      } else {
+        stack.appendChild(sectionCard(sec.title, renderLectureRawHTML(sec.content), meta.color));
       }
       return; // skip normal append below
     } else {
-      // generic: preserve paragraphs, convert **bold**
-      const paras = sec.content.trim()
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .split(/\n{2,}/)
-        .map(p => `<p style="margin-bottom:12px;font-size:15px;line-height:1.8;color:var(--text-dim)">${p.trim()}</p>`);
-      bodyHTML = `<div>${paras.join("")}</div>`;
+      bodyHTML = renderLectureParagraphsHTML(sec.content);
     }
 
     stack.appendChild(sectionCard(sec.title, bodyHTML, meta.color));
@@ -649,6 +748,7 @@ function sectionCard(title, bodyHTML, colorOverride) {
 
 /* ── Toggle exercise answer ─────────────────────────────────── */
 function toggleExercise(id) {
+  recordMeaningfulPractice();
   document.getElementById(id)?.classList.toggle("open");
 }
 
@@ -659,8 +759,12 @@ function handleGuidedContinue(blockIndex) {
   const block = lesson.blocks[blockIndex];
   if (block.type === "practice") return;
 
+  recordMeaningfulPractice();
   lessonSession[blockIndex].completed = true;
-  renderGuidedLesson(lesson);
+  renderGuidedLesson(lesson, {
+    focusRequest: { type: "active" },
+    announcement: getLessonBlockProgressLabel(lessonSession, lesson.blocks.length),
+  });
 }
 
 function handleGuidedChoice(blockIndex, choiceId) {
@@ -669,15 +773,26 @@ function handleGuidedChoice(blockIndex, choiceId) {
   const blockState = lessonSession?.[blockIndex];
   if (!block || block.type !== "practice" || !blockState || blockState.solved) return;
 
+  recordMeaningfulPractice();
   blockState.selectedChoice = choiceId;
   blockState.attempts = (blockState.attempts || 0) + 1;
+
+  let focusRequest = { type: "choice", blockIndex, choiceId };
+  let announcement = getLessonBlockProgressLabel(lessonSession, lesson.blocks.length);
 
   if (choiceId === block.correctChoice) {
     blockState.solved = true;
     blockState.completed = true;
+    focusRequest = { type: "active" };
+    announcement = `${formatAnnouncementText(block.correctMessage || "Correcto.")} ${getLessonBlockProgressLabel(lessonSession, lesson.blocks.length)}`;
+  } else {
+    const feedbackState = getPracticeFeedbackState(blockState);
+    announcement = feedbackState === "walkthrough"
+      ? `Respuesta incorrecta. Desarrollo guiado disponible. ${getLessonBlockProgressLabel(lessonSession, lesson.blocks.length)}`
+      : `Respuesta incorrecta. Pista disponible. ${getLessonBlockProgressLabel(lessonSession, lesson.blocks.length)}`;
   }
 
-  renderGuidedLesson(lesson);
+  renderGuidedLesson(lesson, { focusRequest, announcement });
 }
 
 /* ── Trigger KaTeX rendering ────────────────────────────────── */
@@ -921,14 +1036,13 @@ $btnGenerate?.addEventListener("click", async () => {
     // Save & render
     generatedCache[lessonId] = fullText;
     saveCache();
-    recordPractice(lessonId);
     updateMasteredButton(lessonId);
 
     $progressFill.style.width = "100%";
     setTimeout(() => {
       $heroProgress.style.display = "none";
       $streamPreview.style.display = "none";
-      renderParsed(parseSections(fullText));
+      renderParsed(parseGeneratedLessonContent(fullText));
       renderLearningPathPanel();
       $btnCopy.style.display = "flex";
       $btnMastered.style.display = "flex";
@@ -1071,6 +1185,7 @@ function renderMCQ(mcqArray, parentEl) {
 
 function handleMCQSelect(itemEl, chosen, correct) {
   if (itemEl.classList.contains("answered")) return;
+  recordMeaningfulPractice();
   itemEl.classList.add("answered");
   const options = itemEl.querySelectorAll(".mcq-option");
   const feedback = itemEl.querySelector(".mcq-feedback");
@@ -1080,11 +1195,13 @@ function handleMCQSelect(itemEl, chosen, correct) {
     options[chosen].classList.add("correct");
     feedback.textContent = "✓ ¡Correcto!";
     feedback.style.color = "var(--green)";
+    announceLessonStatus("Respuesta correcta.");
   } else {
     options[chosen].classList.add("wrong");
     options[correct].classList.add("reveal");
     feedback.textContent = `✗ Incorrecto — la respuesta correcta era ${LETTERS[correct]})`;
     feedback.style.color = "var(--pink)";
+    announceLessonStatus(`Respuesta incorrecta. La correcta era ${LETTERS[correct]}.`);
   }
   options.forEach(option => { option.disabled = true; });
   feedback.style.display = "block";
@@ -1254,5 +1371,6 @@ if (IS_NODE) {
     countCompletedBlocks,
     getActiveGuidedBlockIndex,
     getLessonBlockProgressLabel,
+    parseGeneratedLessonContent,
   };
 }
