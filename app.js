@@ -1,15 +1,16 @@
-/* app.js — Calculus II Mini-Lecciones */
+/* app.js — Cálculo II Mini-Lecciones */
 
 /* ── Constants ─────────────────────────────────────────────── */
 const SECTION_META = {
-  "🎯 Objetivo":             { color: "#d4a843", accent: "#d4a843" },
-  "💡 Concepto":             { color: "#6baed6", accent: "#6baed6" },
-  "🔑 Definiciones":         { color: "#52c97a", accent: "#52c97a" },
-  "📐 Fórmulas Clave":       { color: "#f48fb1", accent: "#f48fb1" },
-  "✏️ Ejemplos Resueltos":   { color: "#b39ddb", accent: "#b39ddb" },
-  "🏋️ Ejercicios de Práctica": { color: "#ffd54f", accent: "#ffd54f" },
-  "✅ Soluciones":            { color: "#4db6ac", accent: "#4db6ac" },
-  "📝 Resumen":              { color: "#e8935a", accent: "#e8935a" },
+  "🎯 Objetivo":             { color: "#8b6914", accent: "#8b6914" },
+  "💡 Concepto":             { color: "#2563a8", accent: "#2563a8" },
+  "🔑 Definiciones":         { color: "#2d7a4f", accent: "#2d7a4f" },
+  "📐 Fórmulas Clave":       { color: "#b5486a", accent: "#b5486a" },
+  "✏️ Ejemplos Resueltos":   { color: "#6b4f9e", accent: "#6b4f9e" },
+  "🏋️ Ejercicios de Práctica": { color: "#b85c2a", accent: "#b85c2a" },
+  "✅ Soluciones":            { color: "#2a7a72", accent: "#2a7a72" },
+  "📝 Resumen":              { color: "#b85c2a", accent: "#b85c2a" },
+  "🔢 Opción Múltiple":      { color: "#6b4f9e", accent: "#6b4f9e" },
 };
 
 const SECTION_HEADERS = Object.keys(SECTION_META);
@@ -17,35 +18,102 @@ const SECTION_HEADERS = Object.keys(SECTION_META);
 /* ── State ──────────────────────────────────────────────────── */
 let activeLesson = null;
 let generatedCache = {}; // { lessonId: rawText }
+let progressData  = {}; // { lessonId: { mastered, masteredAt, lastPracticed, practiceCount } }
 let isGenerating = false;
 
-/* ── Load cache from localStorage ───────────────────────────── */
+/* ── Load cache & progress from localStorage ─────────────────── */
 try {
   const saved = localStorage.getItem("calc2_lessons");
   if (saved) generatedCache = JSON.parse(saved);
+} catch (_) {}
+
+try {
+  const saved = localStorage.getItem("calc2_progress");
+  if (saved) progressData = JSON.parse(saved);
 } catch (_) {}
 
 function saveCache() {
   try { localStorage.setItem("calc2_lessons", JSON.stringify(generatedCache)); } catch (_) {}
 }
 
+function saveProgress() {
+  try { localStorage.setItem("calc2_progress", JSON.stringify(progressData)); } catch (_) {}
+}
+
+function ensureProgressEntry(id) {
+  if (!progressData[id]) {
+    progressData[id] = { mastered: false, masteredAt: null, lastPracticed: null, practiceCount: 0 };
+  }
+}
+
+function recordPractice(id) {
+  ensureProgressEntry(id);
+  progressData[id].lastPracticed = new Date().toISOString().slice(0, 10);
+  progressData[id].practiceCount++;
+  saveProgress();
+}
+
 /* ── DOM refs ───────────────────────────────────────────────── */
-const $nav          = document.getElementById("lessonNav");
-const $search       = document.getElementById("search");
-const $count        = document.getElementById("lessonCount");
-const $emptyState   = document.getElementById("emptyState");
-const $lessonView   = document.getElementById("lessonView");
-const $heroTag      = document.getElementById("heroTag");
-const $heroTitle    = document.getElementById("heroTitle");
-const $heroMeta     = document.getElementById("heroMeta");
-const $heroProgress = document.getElementById("heroProgress");
-const $progressFill = document.getElementById("progressFill");
-const $btnGenerate  = document.getElementById("btnGenerate");
-const $btnCopy      = document.getElementById("btnCopy");
-const $streamPreview= document.getElementById("streamPreview");
-const $streamText   = document.getElementById("streamText");
-const $errorBox     = document.getElementById("errorBox");
-const $lessonContent= document.getElementById("lessonContent");
+const $nav              = document.getElementById("lessonNav");
+const $search           = document.getElementById("search");
+const $count            = document.getElementById("lessonCount");
+const $emptyState       = document.getElementById("emptyState");
+const $lessonView       = document.getElementById("lessonView");
+const $heroTag          = document.getElementById("heroTag");
+const $heroTitle        = document.getElementById("heroTitle");
+const $heroMeta         = document.getElementById("heroMeta");
+const $heroProgress     = document.getElementById("heroProgress");
+const $progressFill     = document.getElementById("progressFill");
+const $btnGenerate      = document.getElementById("btnGenerate");
+const $btnCopy          = document.getElementById("btnCopy");
+const $btnMastered      = document.getElementById("btnMastered");
+const $streamPreview    = document.getElementById("streamPreview");
+const $streamText       = document.getElementById("streamText");
+const $errorBox         = document.getElementById("errorBox");
+const $learningPathShell= document.getElementById("learningPathShell");
+const $lessonContent    = document.getElementById("lessonContent");
+const $progressOverlay  = document.getElementById("progressOverlay");
+const $progressStats    = document.getElementById("progressStats");
+const $progressTableWrap= document.getElementById("progressTableWrap");
+const $graphOverlay     = document.getElementById("graphOverlay");
+const $graphSummary     = document.getElementById("graphSummary");
+const $graphMapWrap     = document.getElementById("graphMapWrap");
+const $btnGraphOpen     = document.getElementById("btnGraphOpen");
+const $btnProgressOpen  = document.getElementById("btnProgressOpen");
+const $btnCloseProgress = document.getElementById("btnCloseProgress");
+const $btnCloseGraph    = document.getElementById("btnCloseGraph");
+const $btnExportMd      = document.getElementById("btnExportMd");
+
+function getTopicByLessonId(id) {
+  return TOPICS.find(topic => topic.lessons.some(lesson => lesson.id === id)) || null;
+}
+
+function getLessonState(id) {
+  if (activeLesson?.id === id) return "active";
+  if (progressData[id]?.mastered) return "mastered";
+  if (progressData[id]?.practiceCount > 0) return "practiced";
+  if ((getMissingPrerequisites(id, progressData) || []).length === 0) return "ready";
+  return "pending";
+}
+
+function escapeHTML(text = "") {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function renderLessonChip(id, extraClass = "") {
+  const lesson = getLessonById(id);
+  if (!lesson) return "";
+  const state = getLessonState(id);
+  return `
+    <button class="lesson-chip-card ${extraClass} state-${state}" data-lesson-jump="${lesson.id}">
+      <span class="lesson-chip-id">${lesson.id}</span>
+      <span class="lesson-chip-title">${escapeHTML(lesson.name)}</span>
+    </button>`;
+}
 
 /* ══════════════════════════════════════════════════════════════
    SIDEBAR — build lesson navigation
@@ -89,9 +157,12 @@ function buildNav(filter = "") {
       const item = document.createElement("div");
       item.className = "lesson-item" + (activeLesson?.id === lesson.id ? " active" : "");
       item.dataset.id = lesson.id;
+      const masteredDot = progressData[lesson.id]?.mastered
+        ? `<span class="mastered-dot" title="Dominado">★</span>` : "";
       item.innerHTML = `
         <span class="lesson-id">${lesson.id}</span>
-        <span class="lesson-name">${highlightMatch(lesson.name, filter)}</span>`;
+        <span class="lesson-name">${highlightMatch(lesson.name, filter)}</span>
+        ${masteredDot}`;
       item.addEventListener("click", () => selectLesson(lesson, topic));
       list.appendChild(item);
     });
@@ -109,7 +180,7 @@ function buildNav(filter = "") {
 function highlightMatch(text, query) {
   if (!query) return text;
   const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-  return text.replace(re, '<mark style="background:rgba(212,168,67,.25);color:#e8d8b8;border-radius:2px">$1</mark>');
+  return text.replace(re, '<mark style="background:rgba(139,105,20,.18);color:var(--text);border-radius:2px">$1</mark>');
 }
 
 /* ── Search ─────────────────────────────────────────────────── */
@@ -132,16 +203,18 @@ function selectLesson(lesson, topic) {
   $lessonView.style.display = "flex";
 
   // populate hero
-  $heroTag.textContent = `Calculus II · ${lesson.id}`;
+  $heroTag.textContent = `Cálculo II · ${lesson.id}`;
   $heroTitle.textContent = lesson.name;
   $heroMeta.innerHTML = `
     <span>📚 ${topic.label}</span>
     <span>⏱ 15–20 min</span>
-    <span>🏋️ Ejercicios incluidos</span>`;
+    <span>🏋️ Ejercicios incluidos</span>
+    <span>🗺 Ruta guiada</span>`;
 
   // reset panels
   $streamPreview.style.display = "none";
   $errorBox.style.display = "none";
+  $learningPathShell.style.display = "block";
   $heroProgress.style.display = "none";
   $btnGenerate.disabled = false;
   $btnGenerate.innerHTML = '<span class="btn-icon">✨</span><span class="btn-label">Generar Lección</span>';
@@ -149,14 +222,48 @@ function selectLesson(lesson, topic) {
   // show preloaded or cached content
   if (PRELOADED[lesson.id]) {
     renderPreloaded(lesson.id);
+    renderLearningPathPanel();
     $btnCopy.style.display = "flex";
+    $btnMastered.style.display = "flex";
+    recordPractice(lesson.id);
+    updateMasteredButton(lesson.id);
   } else if (generatedCache[lesson.id]) {
     renderParsed(parseSections(generatedCache[lesson.id]));
+    renderLearningPathPanel();
     $btnCopy.style.display = "flex";
+    $btnMastered.style.display = "flex";
+    recordPractice(lesson.id);
+    updateMasteredButton(lesson.id);
   } else {
+    renderLearningPathPanel();
     $lessonContent.innerHTML = "";
     $btnCopy.style.display = "none";
+    $btnMastered.style.display = "none";
   }
+}
+
+function updateMasteredButton(id) {
+  const mastered = progressData[id]?.mastered;
+  $btnMastered.classList.toggle("is-mastered", !!mastered);
+  $btnMastered.querySelector(".btn-mastered-icon").textContent = mastered ? "★" : "☆";
+  $btnMastered.querySelector(".btn-mastered-label").textContent = mastered ? "Dominado ✓" : "Marcar dominado";
+}
+
+function updateNavMasteredIndicators() {
+  document.querySelectorAll(".lesson-item").forEach(el => {
+    const id = el.dataset.id;
+    const hasDot = !!el.querySelector(".mastered-dot");
+    const shouldHave = !!progressData[id]?.mastered;
+    if (shouldHave && !hasDot) {
+      const dot = document.createElement("span");
+      dot.className = "mastered-dot";
+      dot.title = "Dominado";
+      dot.textContent = "★";
+      el.appendChild(dot);
+    } else if (!shouldHave && hasDot) {
+      el.querySelector(".mastered-dot").remove();
+    }
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -238,10 +345,17 @@ function renderPreloaded(id) {
     </li>`).join("")}</ul>`;
   $lessonContent.appendChild(sectionCard("📝 Resumen", sumHTML));
 
+  // Multiple choice
+  if (d.mcq && d.mcq.length) {
+    const mcqCard = sectionCard("🔢 Opción Múltiple", '<div class="mcq-placeholder"></div>');
+    $lessonContent.appendChild(mcqCard);
+    renderMCQ(d.mcq, mcqCard.querySelector(".mcq-placeholder"));
+  }
+
   // Footer
   const footer = document.createElement("div");
   footer.className = "lesson-footer";
-  footer.textContent = `Calculus II · ${id} · Potenciado por Claude`;
+  footer.textContent = `Cálculo II · ${id} · Contenido guiado por IA`;
   $lessonContent.appendChild(footer);
 
   triggerKaTeX();
@@ -300,7 +414,7 @@ function renderParsed(sections) {
       } else {
         bodyHTML = `<ul class="summary-list">${items.map(it => `
           <li class="summary-item">
-            <div class="summary-dot" style="background:#4db6ac"></div>
+            <div class="summary-dot" style="background:var(--teal)"></div>
             <span>${it.n}. ${it.text}</span>
           </li>`).join("")}</ul>`;
       }
@@ -314,12 +428,20 @@ function renderParsed(sections) {
         </li>`).join("")}</ul>`;
     } else if (sec.title === "🎯 Objetivo") {
       bodyHTML = `<div class="objective-text">${sec.content.trim()}</div>`;
+    } else if (sec.title === "🔢 Opción Múltiple") {
+      const parsed = parseMCQSection(sec.content);
+      if (parsed.length) {
+        const mcqCard = sectionCard(sec.title, '<div class="mcq-placeholder"></div>', meta.color);
+        $lessonContent.appendChild(mcqCard);
+        renderMCQ(parsed, mcqCard.querySelector(".mcq-placeholder"));
+      }
+      return; // skip normal append below
     } else {
       // generic: preserve paragraphs, convert **bold**
       const paras = sec.content.trim()
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .split(/\n{2,}/)
-        .map(p => `<p style="margin-bottom:12px;font-size:15px;line-height:1.8;color:#9ab4c8">${p.trim()}</p>`);
+        .map(p => `<p style="margin-bottom:12px;font-size:15px;line-height:1.8;color:var(--text-dim)">${p.trim()}</p>`);
       bodyHTML = `<div>${paras.join("")}</div>`;
     }
 
@@ -328,7 +450,7 @@ function renderParsed(sections) {
 
   const footer = document.createElement("div");
   footer.className = "lesson-footer";
-  footer.textContent = `Calculus II · ${activeLesson?.id} · Generado por Claude`;
+  footer.textContent = `Cálculo II · ${activeLesson?.id} · Generado con IA`;
   $lessonContent.appendChild(footer);
 
   triggerKaTeX();
@@ -368,8 +490,122 @@ function triggerKaTeX() {
   }
 }
 
+function renderLearningPathPanel() {
+  if (!activeLesson) {
+    $learningPathShell.style.display = "none";
+    $learningPathShell.innerHTML = "";
+    return;
+  }
+
+  const prerequisites = getPrerequisites(activeLesson.id);
+  const dependents = getDependents(activeLesson.id);
+  const recommended = getRecommendedNext(activeLesson.id).filter(id => id !== activeLesson.id).slice(0, 4);
+  const missing = getMissingPrerequisites(activeLesson.id, progressData);
+  const prereqDone = prerequisites.length - missing.length;
+
+  $learningPathShell.style.display = "block";
+  $learningPathShell.innerHTML = `
+    <section class="path-panel">
+      <div class="path-panel-header">
+        <div>
+          <div class="path-panel-kicker">Ruta pedagógica</div>
+          <h2 class="path-panel-title">Prerequisitos y siguiente paso</h2>
+        </div>
+        <button class="btn-copy btn-inline-secondary" id="btnOpenGraphInline" type="button">Ver mapa completo</button>
+      </div>
+      <div class="path-summary-row">
+        <div class="path-summary-chip"><strong>${prereqDone}/${prerequisites.length}</strong><span> prerequisitos dominados</span></div>
+        <div class="path-summary-chip"><strong>${dependents.length}</strong><span> contenidos que desbloquea</span></div>
+        <div class="path-summary-chip"><strong>${recommended.length}</strong><span> siguientes sugeridos</span></div>
+      </div>
+      ${missing.length ? `<div class="path-alert">Antes de profundizar en <strong>${escapeHTML(activeLesson.name)}</strong>, conviene repasar: ${missing.map(id => escapeHTML(getLessonById(id)?.name || id)).join(", ")}.</div>` : `<div class="path-alert is-positive">Ya tienes cubiertos los prerrequisitos directos de esta lección.</div>`}
+      <div class="path-graph">
+        <div class="path-column">
+          <div class="path-column-title">Antes de esta lección</div>
+          <div class="path-node-list">
+            ${prerequisites.length ? prerequisites.map(id => renderLessonChip(id)).join("") : '<div class="path-empty">No requiere un contenido previo directo.</div>'}
+          </div>
+        </div>
+        <div class="path-focus">
+          <div class="path-column-title">Lección actual</div>
+          ${renderLessonChip(activeLesson.id, "is-focus")}
+        </div>
+        <div class="path-column">
+          <div class="path-column-title">Después de esta lección</div>
+          <div class="path-node-list">
+            ${dependents.length ? dependents.map(id => renderLessonChip(id)).join("") : '<div class="path-empty">Esta lección cierra una rama del temario.</div>'}
+          </div>
+        </div>
+      </div>
+      <div class="path-recommended">
+        <div class="path-column-title">Siguiente ruta recomendada</div>
+        <div class="path-recommended-list">
+          ${recommended.length ? recommended.map(id => renderLessonChip(id, "is-recommended")).join("") : '<div class="path-empty">No hay una siguiente lección directa recomendada.</div>'}
+        </div>
+      </div>
+    </section>`;
+
+  document.getElementById("btnOpenGraphInline")?.addEventListener("click", openGraphOverlay);
+}
+
+function renderGlobalGraph() {
+  const lessons = TOPICS.flatMap(topic => topic.lessons);
+  const readyCount = lessons.filter(lesson => getMissingPrerequisites(lesson.id, progressData).length === 0).length;
+  const masteredCount = lessons.filter(lesson => progressData[lesson.id]?.mastered).length;
+
+  $graphSummary.innerHTML = `
+    <div class="path-summary-row graph-summary-row">
+      <div class="path-summary-chip"><strong>${lessons.length}</strong><span> contenidos en el mapa</span></div>
+      <div class="path-summary-chip"><strong>${masteredCount}</strong><span> dominados</span></div>
+      <div class="path-summary-chip"><strong>${readyCount}</strong><span> listos para estudiar</span></div>
+    </div>
+    <p class="graph-summary-text">Cada tarjeta muestra sus prerrequisitos directos. Haz clic en cualquier contenido para abrirlo.</p>`;
+
+  $graphMapWrap.innerHTML = TOPICS.map(topic => `
+    <section class="graph-topic">
+      <header class="graph-topic-header">
+        <span>${topic.icon}</span>
+        <div>
+          <h3>${topic.label}</h3>
+          <p>${topic.lessons.length} lecciones</p>
+        </div>
+      </header>
+      <div class="graph-topic-list">
+        ${topic.lessons.map(lesson => {
+          const state = getLessonState(lesson.id);
+          const prereqLabels = lesson.prerequisites.map(id => `<span class="graph-edge-chip">${id}</span>`).join("");
+          return `
+            <button class="graph-node state-${state}" data-lesson-jump="${lesson.id}">
+              <div class="graph-node-top">
+                <span class="graph-node-id">${lesson.id}</span>
+                <span class="graph-node-state">${state === "mastered" ? "★" : state === "practiced" ? "●" : state === "ready" ? "→" : "○"}</span>
+              </div>
+              <div class="graph-node-title">${escapeHTML(lesson.name)}</div>
+              <div class="graph-node-bottom">
+                <span class="graph-node-label">Prerequisitos</span>
+                <div class="graph-edge-list">${prereqLabels || '<span class="graph-edge-chip is-root">Inicio</span>'}</div>
+              </div>
+            </button>`;
+        }).join("")}
+      </div>
+    </section>`).join("");
+}
+
+function jumpToLesson(lessonId) {
+  const lesson = getLessonById(lessonId);
+  const topic = getTopicByLessonId(lessonId);
+  if (!lesson || !topic) return;
+  $graphOverlay.style.display = "none";
+  selectLesson(lesson, topic);
+}
+
+function openGraphOverlay() {
+  renderGlobalGraph();
+  $graphOverlay.style.display = "flex";
+}
+
 /* ══════════════════════════════════════════════════════════════
-   API — Generate lesson with Claude (streaming)
+   API — Generate lesson with IA (streaming)
 ══════════════════════════════════════════════════════════════ */
 const PROMPT = (lesson) => `Eres un tutor experto en Cálculo 2. Genera una mini-lección de 15-20 minutos.
 
@@ -411,6 +647,17 @@ Solución:
 📝 Resumen
 [4-5 bullets comenzando con - ]
 
+🔢 Opción Múltiple
+[Exactamente 3 preguntas de opción múltiple. Usa ESTE FORMATO EXACTO para cada una:]
+PREGUNTA: [texto de la pregunta, LaTeX con $...$]
+A) [opción]
+B) [opción]
+C) [opción]
+D) [opción]
+CORRECTA: [A o B o C o D]
+---
+[repetir para las 3 preguntas]
+
 Responde en español. Sé riguroso y didáctico.`;
 
 $btnGenerate.addEventListener("click", async () => {
@@ -436,7 +683,7 @@ $btnGenerate.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 3000,
+        max_tokens: 3500,
         stream: true,
         messages: [{ role: "user", content: PROMPT(activeLesson) }],
       }),
@@ -471,13 +718,17 @@ $btnGenerate.addEventListener("click", async () => {
     // Save & render
     generatedCache[lessonId] = fullText;
     saveCache();
+    recordPractice(lessonId);
+    updateMasteredButton(lessonId);
 
     $progressFill.style.width = "100%";
     setTimeout(() => {
       $heroProgress.style.display = "none";
       $streamPreview.style.display = "none";
       renderParsed(parseSections(fullText));
+      renderLearningPathPanel();
       $btnCopy.style.display = "flex";
+      $btnMastered.style.display = "flex";
     }, 400);
 
   } catch (err) {
@@ -504,6 +755,263 @@ $btnCopy.addEventListener("click", () => {
     }, 2000);
   });
 });
+
+document.addEventListener("click", event => {
+  const trigger = event.target.closest("[data-lesson-jump]");
+  if (!trigger) return;
+  jumpToLesson(trigger.dataset.lessonJump);
+});
+
+/* ══════════════════════════════════════════════════════════════
+   MULTIPLE CHOICE (MCQ)
+══════════════════════════════════════════════════════════════ */
+function parseMCQSection(content) {
+  const questions = [];
+  let current = null;
+  const LETTERS = ["A", "B", "C", "D"];
+  for (const rawLine of content.split("\n")) {
+    const line = rawLine.trim();
+    if (line.startsWith("PREGUNTA:")) {
+      if (current && current.options.length === 4) questions.push(current);
+      current = { q: line.slice("PREGUNTA:".length).trim(), options: [], correct: 0 };
+    } else if (current && /^[A-D]\)/.test(line)) {
+      current.options.push(line.slice(2).trim());
+    } else if (current && line.startsWith("CORRECTA:")) {
+      const letter = line.slice("CORRECTA:".length).trim().toUpperCase();
+      current.correct = LETTERS.indexOf(letter);
+      if (current.correct < 0) current.correct = 0;
+    } else if (line === "---" && current && current.options.length === 4) {
+      questions.push(current);
+      current = null;
+    }
+  }
+  if (current && current.options.length === 4) questions.push(current);
+  return questions;
+}
+
+let mcqCounter = 0;
+
+function renderMCQ(mcqArray, parentEl) {
+  if (!mcqArray || !mcqArray.length) return;
+  const prefix = "mcq_" + (++mcqCounter) + "_";
+  const list = document.createElement("div");
+  list.className = "mcq-list";
+
+  mcqArray.forEach((q, qi) => {
+    const itemId = prefix + qi;
+    const item = document.createElement("div");
+    item.className = "mcq-item";
+    item.id = itemId;
+
+    const questionEl = document.createElement("div");
+    questionEl.className = "mcq-question";
+    questionEl.innerHTML = `<span class="mcq-q-num">${qi + 1}.</span> ${q.q}`;
+    item.appendChild(questionEl);
+
+    const optionsEl = document.createElement("div");
+    optionsEl.className = "mcq-options";
+    const LETTERS = ["A", "B", "C", "D"];
+
+    q.options.forEach((opt, oi) => {
+      const btn = document.createElement("div");
+      btn.className = "mcq-option";
+      btn.dataset.index = oi;
+      btn.innerHTML = `<span class="mcq-option-letter">${LETTERS[oi]}</span><span>${opt}</span>`;
+      btn.addEventListener("click", () => handleMCQSelect(item, oi, q.correct));
+      optionsEl.appendChild(btn);
+    });
+
+    item.appendChild(optionsEl);
+
+    const feedback = document.createElement("div");
+    feedback.className = "mcq-feedback";
+    feedback.style.display = "none";
+    item.appendChild(feedback);
+
+    list.appendChild(item);
+  });
+
+  parentEl.appendChild(list);
+  if (typeof renderMathInElement === "function") {
+    renderMathInElement(list, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+      ],
+      throwOnError: false,
+    });
+  }
+}
+
+function handleMCQSelect(itemEl, chosen, correct) {
+  if (itemEl.classList.contains("answered")) return;
+  itemEl.classList.add("answered");
+  const options = itemEl.querySelectorAll(".mcq-option");
+  const feedback = itemEl.querySelector(".mcq-feedback");
+  const LETTERS = ["A", "B", "C", "D"];
+
+  if (chosen === correct) {
+    options[chosen].classList.add("correct");
+    feedback.textContent = "✓ ¡Correcto!";
+    feedback.style.color = "var(--green)";
+  } else {
+    options[chosen].classList.add("wrong");
+    options[correct].classList.add("reveal");
+    feedback.textContent = `✗ Incorrecto — la respuesta correcta era ${LETTERS[correct]})`;
+    feedback.style.color = "var(--pink)";
+  }
+  feedback.style.display = "block";
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MASTERED BUTTON
+══════════════════════════════════════════════════════════════ */
+$btnMastered.addEventListener("click", () => {
+  if (!activeLesson) return;
+  ensureProgressEntry(activeLesson.id);
+  const entry = progressData[activeLesson.id];
+  entry.mastered = !entry.mastered;
+  entry.masteredAt = entry.mastered ? new Date().toISOString().slice(0, 10) : null;
+  saveProgress();
+  updateMasteredButton(activeLesson.id);
+  updateNavMasteredIndicators();
+  renderLearningPathPanel();
+  if ($graphOverlay.style.display === "flex") renderGlobalGraph();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   PROGRESS MODAL
+══════════════════════════════════════════════════════════════ */
+$btnGraphOpen.addEventListener("click", openGraphOverlay);
+
+$btnCloseGraph.addEventListener("click", () => {
+  $graphOverlay.style.display = "none";
+});
+
+$graphOverlay.addEventListener("click", e => {
+  if (e.target === $graphOverlay) $graphOverlay.style.display = "none";
+});
+
+$btnProgressOpen.addEventListener("click", () => {
+  renderProgressModal();
+  $progressOverlay.style.display = "flex";
+});
+
+$btnCloseProgress.addEventListener("click", () => {
+  $progressOverlay.style.display = "none";
+});
+
+$progressOverlay.addEventListener("click", e => {
+  if (e.target === $progressOverlay) $progressOverlay.style.display = "none";
+});
+
+$btnExportMd.addEventListener("click", exportProgressMarkdown);
+
+function renderProgressModal() {
+  const allLessons = TOPICS.flatMap(t => t.lessons);
+  const total = allLessons.length;
+  const masteredCount = Object.values(progressData).filter(e => e.mastered).length;
+  const practicedCount = Object.values(progressData).filter(e => e.practiceCount > 0).length;
+  const totalSessions = Object.values(progressData).reduce((s, e) => s + (e.practiceCount || 0), 0);
+
+  $progressStats.innerHTML = `
+    <div class="stat-chip">
+      <span class="stat-value">${masteredCount} / ${total}</span>
+      <span class="stat-label">dominadas</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-value">${practicedCount}</span>
+      <span class="stat-label">practicadas</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-value">${totalSessions}</span>
+      <span class="stat-label">sesiones totales</span>
+    </div>`;
+
+  const interacted = allLessons.filter(l => progressData[l.id]?.practiceCount > 0);
+  if (!interacted.length) {
+    $progressTableWrap.innerHTML = '<p class="progress-empty">Aún no has practicado ninguna lección. ¡Selecciona una del menú!</p>';
+    return;
+  }
+
+  let html = '<table class="progress-table"><thead><tr><th>ID</th><th>Lección</th><th>Última práctica</th><th>Sesiones</th><th>Estado</th></tr></thead><tbody>';
+
+  TOPICS.forEach(topic => {
+    const topicLessons = topic.lessons.filter(l => progressData[l.id]?.practiceCount > 0);
+    if (!topicLessons.length) return;
+    // mastered first, then by lastPracticed
+    topicLessons.sort((a, b) => {
+      const am = progressData[a.id]?.mastered ? 1 : 0;
+      const bm = progressData[b.id]?.mastered ? 1 : 0;
+      if (am !== bm) return bm - am;
+      return (progressData[b.id]?.lastPracticed || "").localeCompare(progressData[a.id]?.lastPracticed || "");
+    });
+    html += `<tr class="progress-group-header"><td colspan="5">${topic.icon} ${topic.label}</td></tr>`;
+    topicLessons.forEach(l => {
+      const e = progressData[l.id];
+      const mastered = e?.mastered;
+      const statusHtml = mastered
+        ? `<span class="status-mastered">★ Dominado</span>`
+        : `<span class="status-practiced">practicado</span>`;
+      html += `<tr class="${mastered ? "mastered-row" : ""}">
+        <td><span style="font-family:'JetBrains Mono',monospace;font-size:11px">${l.id}</span></td>
+        <td>${l.name}</td>
+        <td style="white-space:nowrap">${e?.lastPracticed || "—"}</td>
+        <td style="text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px">${e?.practiceCount || 0}</td>
+        <td>${statusHtml}</td>
+      </tr>`;
+    });
+  });
+
+  html += '</tbody></table>';
+  $progressTableWrap.innerHTML = html;
+}
+
+function exportProgressMarkdown() {
+  const today = new Date().toISOString().slice(0, 10);
+  const allLessons = TOPICS.flatMap(t => t.lessons);
+  const total = allLessons.length;
+  const masteredCount = Object.values(progressData).filter(e => e.mastered).length;
+  const practicedCount = Object.values(progressData).filter(e => e.practiceCount > 0).length;
+  const totalSessions = Object.values(progressData).reduce((s, e) => s + (e.practiceCount || 0), 0);
+
+  let md = `# Progreso — Cálculo II Mini-Lecciones\nExportado: ${today}\n\n`;
+  md += `## Resumen\n- **Lecciones dominadas:** ${masteredCount} / ${total}\n`;
+  md += `- **Lecciones practicadas:** ${practicedCount} / ${total}\n`;
+  md += `- **Sesiones totales:** ${totalSessions}\n\n---\n\n`;
+
+  TOPICS.forEach(topic => {
+    const topicLessons = topic.lessons.filter(l => progressData[l.id]?.practiceCount > 0);
+    if (!topicLessons.length) return;
+    topicLessons.sort((a, b) => {
+      const am = progressData[a.id]?.mastered ? 1 : 0;
+      const bm = progressData[b.id]?.mastered ? 1 : 0;
+      if (am !== bm) return bm - am;
+      return (progressData[b.id]?.lastPracticed || "").localeCompare(progressData[a.id]?.lastPracticed || "");
+    });
+    md += `## ${topic.icon} ${topic.label}\n\n`;
+    md += `| ID | Lección | Última práctica | Sesiones | Estado |\n`;
+    md += `|----|---------|-----------------|----------|--------|\n`;
+    topicLessons.forEach(l => {
+      const e = progressData[l.id];
+      const status = e?.mastered ? "★ Dominado" : "practicado";
+      md += `| ${l.id} | ${l.name} | ${e?.lastPracticed || "—"} | ${e?.practiceCount || 0} | ${status} |\n`;
+    });
+    md += "\n";
+  });
+
+  md += `---\n_Generado por Cálculo II Mini-Lecciones_\n`;
+
+  const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `calc2-progreso-${today}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 /* ══════════════════════════════════════════════════════════════
    INIT

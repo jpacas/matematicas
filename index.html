@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Calculus II — Mini-Lecciones</title>
+  <title>Cálculo II — Mini-Lecciones</title>
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -24,7 +24,7 @@
       <div class="logo">
         <span class="logo-symbol">∫</span>
         <div>
-          <div class="logo-title">Calculus II</div>
+          <div class="logo-title">Cálculo II</div>
           <div class="logo-sub">Mini-Lecciones</div>
         </div>
       </div>
@@ -41,6 +41,8 @@
 
     <div class="sidebar-footer">
       <div id="lessonCount" class="lesson-count"></div>
+      <button class="btn-progress-open" id="btnGraphOpen" title="Ver ruta del curso">🗺 Ruta del curso</button>
+      <button class="btn-progress-open" id="btnProgressOpen" title="Ver mi progreso">📊 Mi progreso</button>
     </div>
   </aside>
 
@@ -51,11 +53,12 @@
     <div class="empty-state" id="emptyState">
       <div class="empty-integral">∫</div>
       <h2 class="empty-title">Selecciona una lección</h2>
-      <p class="empty-sub">Elige un tema del menú lateral para generar tu mini-clase personalizada con Claude.</p>
+      <p class="empty-sub">Elige un tema del menú lateral para estudiar una mini-lección en español, revisar sus prerrequisitos y generar contenido con IA.</p>
       <div class="empty-chips">
         <span class="chip">📐 KaTeX · ecuaciones pro</span>
-        <span class="chip">✨ Generado con IA</span>
+        <span class="chip">✨ Contenido asistido por IA</span>
         <span class="chip">🏋️ Ejercicios con soluciones</span>
+        <span class="chip">🗺 Ruta de prerrequisitos</span>
       </div>
     </div>
 
@@ -79,6 +82,10 @@
               </svg>
               Copiar
             </button>
+            <button class="btn-mastered" id="btnMastered" style="display:none" title="Marcar como dominado">
+              <span class="btn-mastered-icon">☆</span>
+              <span class="btn-mastered-label">Marcar dominado</span>
+            </button>
           </div>
         </div>
         <div class="hero-progress-bar" id="heroProgress" style="display:none">
@@ -94,11 +101,43 @@
       <!-- Error -->
       <div class="error-box" id="errorBox" style="display:none"></div>
 
+      <!-- Learning path -->
+      <section class="learning-path-shell" id="learningPathShell" style="display:none"></section>
+
       <!-- Rendered lesson -->
       <article class="lesson-content" id="lessonContent"></article>
 
     </div><!-- /lesson-view -->
   </main>
+
+  <!-- Progress modal -->
+  <div class="progress-overlay" id="progressOverlay" style="display:none">
+    <div class="progress-modal">
+      <div class="progress-modal-header">
+        <h2 class="progress-modal-title">📊 Mi Progreso</h2>
+        <div class="progress-modal-actions">
+          <button class="btn-export-md" id="btnExportMd">⬇ Exportar .md</button>
+          <button class="btn-close-progress" id="btnCloseProgress" title="Cerrar">✕</button>
+        </div>
+      </div>
+      <div class="progress-stats" id="progressStats"></div>
+      <div class="progress-table-wrap" id="progressTableWrap"></div>
+    </div>
+  </div>
+
+  <!-- Graph overlay -->
+  <div class="progress-overlay" id="graphOverlay" style="display:none">
+    <div class="progress-modal graph-modal">
+      <div class="progress-modal-header">
+        <h2 class="progress-modal-title">🗺 Ruta del curso</h2>
+        <div class="progress-modal-actions">
+          <button class="btn-close-progress" id="btnCloseGraph" title="Cerrar">✕</button>
+        </div>
+      </div>
+      <div class="graph-summary" id="graphSummary"></div>
+      <div class="graph-map-wrap" id="graphMapWrap"></div>
+    </div>
+  </div>
 
   <script src="lessons.js"></script>
   <script src="app.js"></script>

@@ -1,6 +1,6 @@
 /* lessons.js — Calculus II lesson catalog */
 
-const TOPICS = [
+const RAW_TOPICS = [
   {
     id: "1", icon: "∫", label: "Técnicas de Integración",
     lessons: [
@@ -155,6 +155,282 @@ const TOPICS = [
   }
 ];
 
+const SECTION_GRAPH = {
+  "1.1": { prereqSections: [] },
+  "1.2": { prereqSections: ["1.1"] },
+  "1.3": { prereqSections: ["1.1"] },
+  "1.4": { prereqSections: ["1.1"] },
+  "1.5": { prereqSections: ["1.1", "1.3"] },
+  "1.6": { prereqSections: ["1.2"] },
+  "1.7": { prereqSections: ["1.5", "1.6"] },
+  "2.8": { prereqSections: ["1.1", "1.7"] },
+  "2.9": { prereqSections: ["2.8"] },
+  "2.10": { prereqSections: ["2.8", "2.9"] },
+  "2.11": { prereqSections: ["2.10"] },
+  "2.12": { prereqSections: ["2.8"] },
+  "3.13": { prereqSections: ["2.8"] },
+  "3.14": { prereqSections: ["3.13"] },
+  "3.16": { prereqSections: ["3.13"] },
+  "4.17": { prereqSections: [] },
+  "4.18": { prereqSections: ["4.17"] },
+  "4.19": { prereqSections: ["4.17", "4.18"] },
+  "4.20": { prereqSections: ["4.19"] },
+  "4.21": { prereqSections: ["4.19", "4.20"] },
+  "4.22": { prereqSections: ["4.17"] },
+  "4.23": { prereqSections: ["4.20", "4.21", "4.22"] },
+  "5.24": { prereqSections: ["1.1"] },
+  "5.25": { prereqSections: ["5.24"] },
+  "5.26": { prereqSections: ["5.24"] },
+  "5.27": { prereqSections: ["5.24", "5.26"] },
+  "5.28": { prereqSections: ["5.24", "5.25"] },
+  "5.29": { prereqSections: ["5.24", "5.28"] },
+};
+
+const EXACT_TITLE_TRANSLATIONS = {
+  "Integrating Functions by Completing the Square": "Integración de funciones completando el cuadrado",
+  "The Area Between Curves as Functions of X": "Área entre curvas como funciones de x",
+  "The Area Between Curves as Functions of Y": "Área entre curvas como funciones de y",
+  "Areas Between Curves Intersecting at More Than Two Points": "Áreas entre curvas que se intersectan en más de dos puntos",
+  "The Shell Method: Rotating About the X-Axis": "Método de capas cilíndricas: rotación alrededor del eje x",
+  "The Shell Method: Region Between Two Curves": "Método de capas cilíndricas: región entre dos curvas",
+  "The Shell Method: Rotation About the Y-Axis": "Método de capas cilíndricas: rotación alrededor del eje y",
+  "Surface Areas of Revolution: About the X-Axis": "Áreas de superficie de revolución: alrededor del eje x",
+  "Surface Areas of Revolution: About the Y-Axis": "Áreas de superficie de revolución: alrededor del eje y",
+  "Limits of Sequences With Factorials": "Límites de sucesiones con factoriales",
+  "Limits of Sequences Using Relative Magnitudes": "Límites de sucesiones mediante magnitudes relativas",
+  "Identifying Monotonic Sequences Using Differentiation": "Identificación de sucesiones monótonas mediante derivación",
+  "Infinite Series and Partial Sums": "Series infinitas y sumas parciales",
+  "Convergent and Divergent Infinite Series": "Series infinitas convergentes y divergentes",
+  "Telescoping Series": "Series telescópicas",
+  "Maclaurin Series": "Series de Maclaurin",
+  "Taylor Series": "Series de Taylor",
+  "Standard Maclaurin Series for Trigonometric Functions": "Series de Maclaurin estándar para funciones trigonométricas",
+  "Differentiating Taylor Series": "Derivación de series de Taylor",
+  "Approximating Integrals Using Taylor Series": "Aproximación de integrales mediante series de Taylor",
+};
+
+const TITLE_REPLACEMENTS = [
+  ["Surface Areas of Revolution", "Áreas de superficie de revolución"],
+  ["Volumes of Revolution", "Volúmenes de revolución"],
+  ["Volumes of Solids", "Volúmenes de sólidos"],
+  ["The Average Value of a Function", "Valor promedio de una función"],
+  ["The Area Between Curves", "Área entre curvas"],
+  ["Areas Between Curves", "Áreas entre curvas"],
+  ["The Arc Length of a Parametric Curve", "Longitud de arco de una curva paramétrica"],
+  ["The Arc Length of a Polar Curve", "Longitud de arco de una curva polar"],
+  ["The Arc Length of a Planar Curve", "Longitud de arco de una curva plana"],
+  ["The Total Area Bounded by a Single Polar Curve", "Área total delimitada por una sola curva polar"],
+  ["The Area Bounded by Two Polar Curves", "Área delimitada por dos curvas polares"],
+  ["The Shell Method", "Método de capas cilíndricas"],
+  ["Disc Method", "método de discos"],
+  ["Washer Method", "método de anillos"],
+  ["Coordinate Axes", "ejes coordenados"],
+  ["Other Axes", "otros ejes"],
+  ["Cross Sections", "secciones transversales"],
+  ["Calculating the Total Distance Traveled by a Particle", "Cálculo de la distancia total recorrida por una partícula"],
+  ["Determining Characteristics of Moving Objects Using Integration", "Determinación de características de objetos en movimiento mediante integración"],
+  ["Calculating Velocity Using Integration", "Cálculo de la velocidad mediante integración"],
+  ["Integrating Rates of Change", "Integración de tasas de cambio"],
+  ["Integrating Density Functions", "Integración de funciones de densidad"],
+  ["Differentiating Parametric Curves", "Derivación de curvas paramétricas"],
+  ["Tangent and Normal Lines with Parametric Equations", "Rectas tangentes y normales con ecuaciones paramétricas"],
+  ["Second Derivatives of Parametric Equations", "Segundas derivadas de ecuaciones paramétricas"],
+  ["Defining Vector-Valued Functions", "Definición de funciones vectoriales"],
+  ["Differentiating Vector-Valued Functions", "Derivación de funciones vectoriales"],
+  ["Integrating Vector-Valued Functions", "Integración de funciones vectoriales"],
+  ["Differentiating Curves Given in Polar Form", "Derivación de curvas dadas en forma polar"],
+  ["Horizontal and Vertical Tangents to Polar Curves", "Tangentes horizontales y verticales a curvas polares"],
+  ["Finding the Area of a Polar Region", "Cálculo del área de una región polar"],
+  ["Limits of Sequences", "Límites de sucesiones"],
+  ["Convergence of Geometric Sequences", "Convergencia de sucesiones geométricas"],
+  ["Limits of Sequences With Factorials", "Límites de sucesiones con factoriales"],
+  ["Limits of Sequences Using Relative Magnitudes", "Límites de sucesiones mediante magnitudes relativas"],
+  ["Monotonic Sequences", "Sucesiones monótonas"],
+  ["Identifying Monotonic Sequences Using Differentiation", "Identificación de sucesiones monótonas mediante derivación"],
+  ["Infinite Series and Partial Sums", "Series infinitas y sumas parciales"],
+  ["Convergent and Divergent Infinite Series", "Series infinitas convergentes y divergentes"],
+  ["Properties of Infinite Series", "Propiedades de las series infinitas"],
+  ["Telescoping Series", "Series telescópicas"],
+  ["Finding the Sum of an Infinite Geometric Series", "Cálculo de la suma de una serie geométrica infinita"],
+  ["Convergence of Geometric Series", "Convergencia de series geométricas"],
+  ["Repeating Decimals as Infinite Geometric Series", "Decimales periódicos como series geométricas infinitas"],
+  ["The Nth Term Test for Divergence", "Criterio del término n-ésimo para divergencia"],
+  ["The Integral Test", "Criterio integral"],
+  ["The Remainder Estimate for the Integral Test", "Estimación del residuo para el criterio integral"],
+  ["Harmonic Series and p-Series", "Serie armónica y p-series"],
+  ["The Comparison Test", "Criterio de comparación"],
+  ["The Limit Comparison Test", "Criterio de comparación por límite"],
+  ["The Alternating Series Test", "Criterio de series alternantes"],
+  ["The Ratio Test", "Criterio de razón"],
+  ["The Root Test", "Criterio de la raíz"],
+  ["Absolute and Conditional Convergence", "Convergencia absoluta y condicional"],
+  ["The Alternating Series Error Bound", "Cota del error en series alternantes"],
+  ["Selecting Procedures for Analyzing Infinite Series", "Selección de procedimientos para analizar series infinitas"],
+  ["Second-Degree Taylor Polynomials", "Polinomios de Taylor de segundo grado"],
+  ["Third-Degree Taylor Polynomials", "Polinomios de Taylor de tercer grado"],
+  ["Higher-Degree Taylor Polynomials", "Polinomios de Taylor de mayor grado"],
+  ["The Lagrange Error Bound", "Cota del error de Lagrange"],
+  ["Radius of Convergence of Power Series", "Radio de convergencia de series de potencias"],
+  ["Maclaurin Series", "Series de Maclaurin"],
+  ["Taylor Series", "Series de Taylor"],
+  ["Representing Functions as Power Series", "Representación de funciones como series de potencias"],
+  ["Standard Maclaurin Series for Trigonometric Functions", "Series de Maclaurin estándar para funciones trigonométricas"],
+  ["Differentiating Taylor Series", "Derivación de series de Taylor"],
+  ["Approximating Integrals Using Taylor Series", "Aproximación de integrales mediante series de Taylor"],
+  ["Introduction to Differential Equations", "Introducción a las ecuaciones diferenciales"],
+  ["Verifying Solutions of Differential Equations", "Verificación de soluciones de ecuaciones diferenciales"],
+  ["Solving First-Order ODEs Using Direct Integration", "Resolución de EDO de primer orden mediante integración directa"],
+  ["Solving First-Order ODEs Using Separation of Variables", "Resolución de EDO de primer orden mediante separación de variables"],
+  ["Solving First-Order IVPs Using Separation of Variables", "Resolución de PVI de primer orden mediante separación de variables"],
+  ["Modeling With First-Order ODEs", "Modelado con EDO de primer orden"],
+  ["Qualitative Analysis of First-Order ODEs", "Análisis cualitativo de EDO de primer orden"],
+  ["Equilibrium Solutions of First-Order ODEs", "Soluciones de equilibrio de EDO de primer orden"],
+  ["Exponential Growth and Decay Models", "Modelos de crecimiento y decaimiento exponencial"],
+  ["Exponential Growth and Decay: Calculating Unknown Times", "Crecimiento y decaimiento exponencial: cálculo de tiempos desconocidos"],
+  ["Exponential Growth and Decay: Half-Life Problems", "Crecimiento y decaimiento exponencial: problemas de vida media"],
+  ["Logistic Growth Models", "Modelos de crecimiento logístico"],
+  ["Qualitative Analysis of the Logistic Growth Equation", "Análisis cualitativo de la ecuación de crecimiento logístico"],
+  ["Solving the Logistic Growth Equation", "Resolución de la ecuación de crecimiento logístico"],
+  ["Slope Fields for Directly Integrable ODEs", "Campos de pendientes para EDO directamente integrables"],
+  ["Slope Fields for Autonomous ODEs", "Campos de pendientes para EDO autónomas"],
+  ["Slope Fields for Nonautonomous ODEs", "Campos de pendientes para EDO no autónomas"],
+  ["Euler's Method: Calculating One Step", "Método de Euler: cálculo de un paso"],
+  ["Improper Integrals: Discontinuities at Interior Points", "Integrales impropias: discontinuidades en puntos interiores"],
+  ["Improper Integrals Over the Real Line", "Integrales impropias sobre toda la recta real"],
+  ["Improper Integrals of the Second Kind", "Integrales impropias de segunda especie"],
+  ["Improper Integrals Involving Exponential Functions", "Integrales impropias con funciones exponenciales"],
+  ["Improper Integrals Involving Arctangent", "Integrales impropias con arctangente"],
+  ["Improper Integrals", "Integrales impropias"],
+  ["Expressing Rational Functions as Sums of Partial Fractions", "Descomposición de funciones racionales en sumas de fracciones parciales"],
+  ["Partial Fractions With Repeated Factors", "Fracciones parciales con factores repetidos"],
+  ["Partial Fractions With Irreducible Quadratic Factors", "Fracciones parciales con factores cuadráticos irreducibles"],
+  ["Integrating Rational Functions Using Partial Fractions", "Integración de funciones racionales mediante fracciones parciales"],
+  ["Integrating Rational Functions With Repeated Factors", "Integración de funciones racionales con factores repetidos"],
+  ["Integrating Rational Functions With Irreducible Quadratic Factors", "Integración de funciones racionales con factores cuadráticos irreducibles"],
+  ["Introduction to Integration by Parts", "Introducción a la integración por partes"],
+  ["Integration by Parts With Logarithms", "Integración por partes con logaritmos"],
+  ["Applying Integration by Parts Twice", "Aplicación doble de integración por partes"],
+  ["The Tabular Method of Integration by Parts", "Método tabular de integración por partes"],
+  ["Integration by Parts in Cyclic Cases", "Integración por partes en casos cíclicos"],
+  ["Integrating Algebraic Functions Using Substitution", "Integración de funciones algebraicas mediante sustitución"],
+  ["Integrating Linear Rational Functions Using Substitution", "Integración de funciones racionales lineales mediante sustitución"],
+  ["Integration Using Substitution", "Integración mediante sustitución"],
+  ["Calculating Definite Integrals Using Substitution", "Cálculo de integrales definidas mediante sustitución"],
+  ["Further Integration of Algebraic Functions Using Substitution", "Integración adicional de funciones algebraicas mediante sustitución"],
+  ["Integrating Exponential Functions Using Linear Substitution", "Integración de funciones exponenciales mediante sustitución lineal"],
+  ["Integrating Exponential Functions Using Substitution", "Integración de funciones exponenciales mediante sustitución"],
+  ["Integrating Trigonometric Functions Using Substitution", "Integración de funciones trigonométricas mediante sustitución"],
+  ["Integrating Logarithmic Functions Using Substitution", "Integración de funciones logarítmicas mediante sustitución"],
+  ["Integration by Substitution With Inverse Trigonometric Functions", "Integración por sustitución con funciones trigonométricas inversas"],
+  ["Integrating Hyperbolic Functions Using Substitution", "Integración de funciones hiperbólicas mediante sustitución"],
+  ["Integration by Substitution With Inverse Hyperbolic Functions", "Integración por sustitución con funciones hiperbólicas inversas"],
+  ["Integrating Functions Using Polynomial Division", "Integración de funciones mediante división polinómica"],
+  ["Integrating Functions by Completing the Square", "Integración de funciones completando el cuadrado"],
+  ["Integration Using Basic Trigonometric Identities", "Integración mediante identidades trigonométricas básicas"],
+  ["Integration Using the Pythagorean Identities", "Integración mediante identidades pitagóricas"],
+  ["Integration Using the Double-Angle Formulas", "Integración mediante fórmulas de ángulo doble"],
+  ["Integrating Products of Trigonometric Functions", "Integración de productos de funciones trigonométricas"],
+  ["Integration Using Basic Hyperbolic Identities", "Integración mediante identidades hiperbólicas básicas"],
+  ["Integration Using the Hyperbolic Pythagorean Identities", "Integración mediante identidades pitagóricas hiperbólicas"],
+];
+
+function getSectionId(lessonId) {
+  return lessonId.split(".").slice(0, 2).join(".");
+}
+
+function translateLessonName(name) {
+  if (EXACT_TITLE_TRANSLATIONS[name]) return EXACT_TITLE_TRANSLATIONS[name];
+  let translated = name;
+  for (const [from, to] of TITLE_REPLACEMENTS) {
+    translated = translated.replace(from, to);
+  }
+  return translated.replace(/\s{2,}/g, " ").trim();
+}
+
+function buildCurriculum(rawTopics) {
+  const sectionLessons = {};
+
+  rawTopics.forEach(topic => {
+    topic.lessons.forEach(lesson => {
+      const sectionId = getSectionId(lesson.id);
+      if (!sectionLessons[sectionId]) sectionLessons[sectionId] = [];
+      sectionLessons[sectionId].push(lesson.id);
+    });
+  });
+
+  const sectionTerminalIds = Object.fromEntries(
+    Object.entries(sectionLessons).map(([sectionId, ids]) => [sectionId, ids.slice(-1)])
+  );
+
+  const topics = rawTopics.map(topic => ({
+    ...topic,
+    lessons: topic.lessons.map((lesson, index) => {
+      const sectionId = getSectionId(lesson.id);
+      const prevInSection = index > 0 && getSectionId(topic.lessons[index - 1].id) === sectionId
+        ? [topic.lessons[index - 1].id]
+        : null;
+      const prereqSections = SECTION_GRAPH[sectionId]?.prereqSections || [];
+      const prerequisites = prevInSection || prereqSections.flatMap(prereqSection => sectionTerminalIds[prereqSection] || []);
+      return {
+        ...lesson,
+        name: translateLessonName(lesson.name),
+        prerequisites: [...new Set(prerequisites)],
+        recommendedNext: [],
+      };
+    }),
+  }));
+
+  const lessonById = Object.fromEntries(topics.flatMap(topic => topic.lessons.map(lesson => [lesson.id, lesson])));
+  const dependents = {};
+  Object.values(lessonById).forEach(lesson => {
+    lesson.prerequisites.forEach(prereqId => {
+      if (!dependents[prereqId]) dependents[prereqId] = [];
+      dependents[prereqId].push(lesson.id);
+    });
+  });
+
+  topics.forEach(topic => {
+    topic.lessons.forEach((lesson, index) => {
+      const nextInTopic = topic.lessons[index + 1]?.id;
+      const directDependents = dependents[lesson.id] || [];
+      lesson.recommendedNext = [...new Set(nextInTopic ? [nextInTopic, ...directDependents] : directDependents)];
+    });
+  });
+
+  return topics;
+}
+
+const TOPICS = buildCurriculum(RAW_TOPICS);
+const LESSONS = TOPICS.flatMap(topic => topic.lessons);
+const LESSON_BY_ID = Object.fromEntries(LESSONS.map(lesson => [lesson.id, lesson]));
+const DEPENDENTS_BY_ID = LESSONS.reduce((acc, lesson) => {
+  lesson.prerequisites.forEach(prereqId => {
+    if (!acc[prereqId]) acc[prereqId] = [];
+    acc[prereqId].push(lesson.id);
+  });
+  return acc;
+}, {});
+
+function getLessonById(id) {
+  return LESSON_BY_ID[id] || null;
+}
+
+function getPrerequisites(id) {
+  return getLessonById(id)?.prerequisites || [];
+}
+
+function getDependents(id) {
+  return DEPENDENTS_BY_ID[id] || [];
+}
+
+function getRecommendedNext(id) {
+  return getLessonById(id)?.recommendedNext || [];
+}
+
+function getMissingPrerequisites(id, progressData = {}) {
+  return getPrerequisites(id).filter(prereqId => !progressData[prereqId]?.mastered);
+}
+
 /* Pre-generated demo lesson (Integration by Parts) */
 const PRELOADED = {
   "1.5.1": {
@@ -232,6 +508,55 @@ const PRELOADED = {
       "Usa la regla **LIATE** para elegir $u$: logarítmicas primero, exponenciales al final.",
       "Si el grado del polinomio es mayor que 1, aplica la fórmula más de una vez en cadena.",
       "En el caso cíclico ($e^x\\sin x$, $e^x\\cos x$), la integral original aparece en ambos lados — se despeja algebraicamente.",
+    ],
+    mcq: [
+      {
+        q: "Según la regla LIATE, ¿cuál es la elección correcta de $u$ para calcular $\\int x e^x\\,dx$?",
+        options: ["$u = e^x$", "$u = x$", "$u = xe^x$", "$u = e^x + x$"],
+        correct: 1
+      },
+      {
+        q: "Al aplicar integración por partes a $\\int \\ln(x)\\,dx$, ¿cuál es la elección más adecuada?",
+        options: [
+          "$u = 1,\\; dv = \\ln(x)\\,dx$",
+          "$u = \\ln(x),\\; dv = dx$",
+          "$u = x,\\; dv = \\ln(x)\\,dx$",
+          "No se puede aplicar integración por partes aquí"
+        ],
+        correct: 1
+      },
+      {
+        q: "¿Qué ocurre cuando aplicamos integración por partes dos veces a $\\int e^x \\cos(x)\\,dx$?",
+        options: [
+          "La integral se hace cero",
+          "Obtenemos $\\int e^x \\sin(x)\\,dx$ que se resuelve directo",
+          "La integral original reaparece en el resultado, permitiendo despejarla",
+          "El resultado es siempre $e^x \\cos(x) + C$"
+        ],
+        correct: 2
+      },
+      {
+        q: "¿Cuál es el resultado de $\\int x^2 e^x\\,dx$?",
+        options: [
+          "$(x^2 + 2x + 2)e^x + C$",
+          "$(x^2 - 2x + 2)e^x + C$",
+          "$x^2 e^x - 2xe^x + C$",
+          "$(x^2 - 2)e^x + C$"
+        ],
+        correct: 1
+      }
     ]
   }
 };
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    TOPICS,
+    PRELOADED,
+    getLessonById,
+    getPrerequisites,
+    getDependents,
+    getRecommendedNext,
+    getMissingPrerequisites,
+  };
+}
