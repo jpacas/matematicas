@@ -464,7 +464,13 @@ const PRELOADED = {
           "Aplicar la fórmula: $\\int x\\,e^x\\,dx = x\\cdot e^x - \\int e^x\\,dx = xe^x - e^x + C$.",
           "Resultado: $\\displaystyle\\int x\\,e^x\\,dx = (x-1)e^x + C$",
         ],
-        isResult: [false, false, false, true]
+        isResult: [false, false, false, true],
+        why: [
+          "LIATE: Algebraica antes que Exponencial — derivar $x$ la elimina; integrar $e^x$ no la complica.",
+          "Diferenciar $u$ e integrar $dv$ es la mecánica central de la fórmula.",
+          "La integral que queda, $\\int e^x\\,dx$, es inmediata — exactamente lo que buscamos al elegir bien.",
+          null,
+        ],
       },
       {
         label: "Ejemplo 2", diff: 2, diffLabel: "Intermedio",
@@ -475,7 +481,13 @@ const PRELOADED = {
           "Aplicar: $\\int x\\ln x\\,dx = \\frac{x^2}{2}\\ln x - \\int \\frac{x^2}{2}\\cdot\\frac{1}{x}\\,dx = \\frac{x^2}{2}\\ln x - \\frac{1}{2}\\int x\\,dx$.",
           "Resultado: $\\displaystyle\\int x\\ln x\\,dx = \\frac{x^2}{2}\\ln x - \\frac{x^2}{4} + C$",
         ],
-        isResult: [false, false, false, true]
+        isResult: [false, false, false, true],
+        why: [
+          "L va primero en LIATE — los logaritmos no tienen una integral directa, así que preferimos derivarlos.",
+          "Derivar $\\ln x$ da $\\frac{1}{x}$, que cancelará con la $x$ del polinomio en el siguiente paso.",
+          "El factor $\\frac{x^2}{2} \\cdot \\frac{1}{x} = \\frac{x}{2}$ confirma la cancelación — la integral restante es trivial.",
+          null,
+        ],
       },
       {
         label: "Ejemplo 3", diff: 3, diffLabel: "Avanzado",
@@ -486,7 +498,13 @@ const PRELOADED = {
           "El segundo término es el Ejemplo 1: $\\int xe^x\\,dx = (x-1)e^x + C$.",
           "Resultado: $\\displaystyle\\int x^2 e^x\\,dx = (x^2 - 2x + 2)e^x + C$",
         ],
-        isResult: [false, false, false, true]
+        isResult: [false, false, false, true],
+        why: [
+          "Cada aplicación de la fórmula baja el grado del polinomio en 1 — con $x^2$ necesitaremos dos rondas.",
+          "La integral restante $\\int xe^x$ es el Ejemplo 1 que ya resolvimos — la técnica se aplica recursivamente.",
+          "Reutilizar resultados previos evita repetir trabajo: composición de soluciones.",
+          null,
+        ],
       },
       {
         label: "Ejemplo 4", diff: 4, diffLabel: "Cíclico",
@@ -497,7 +515,13 @@ const PRELOADED = {
           "La integral original aparece en ambos lados: $I = e^x\\cos x + e^x\\sin x - I$.",
           "Resultado: $\\displaystyle\\int e^x\\cos x\\,dx = \\frac{e^x(\\cos x + \\sin x)}{2} + C$",
         ],
-        isResult: [false, false, false, true]
+        isResult: [false, false, false, true],
+        why: [
+          "Las funciones trigonométricas y exponenciales no se eliminan al derivar — el ciclo es esperado.",
+          "La segunda aplicación sigue la misma dirección: esto es clave para que la integral original reaparezca.",
+          "Cuando la integral original aparece a ambos lados con el mismo coeficiente, álgebra elemental la despeja.",
+          null,
+        ],
       },
     ],
     exercises: [
@@ -539,7 +563,12 @@ const PRELOADED = {
         correctChoice: "a",
         correctMessage: "Correcto: conviene tomar $u = x$ porque su derivada simplifica la integral.",
         hint: "Aplica LIATE: una función algebraica suele ir antes que una exponencial.",
-        walkthrough: "Elige $u = x$ y $dv = e^x\\,dx$, luego calcula $du = dx$ y $v = e^x$ para aplicar $\\int u\\,dv = uv - \\int v\\,du$.",
+        walkthrough: [
+          "**Paso 1 — Identifica el tipo de integral.** El integrando $xe^x$ es un producto de una función algebraica ($x$) y una exponencial ($e^x$). La sustitución no ayuda aquí; necesitamos integración por partes.",
+          "**Paso 2 — Aplica LIATE para elegir $u$.** LIATE: L-ogarítmica, I-nversa trig., **A**-lgebraica, T-rigonométrica, E-xponencial. $x$ es algebraica y $e^x$ es exponencial → elegimos $u = x$ y $dv = e^x\\,dx$.",
+          "**Paso 3 — Calcula $du$ y $v$.** Diferenciando $u$: $du = dx$. Integrando $dv$: $v = \\int e^x\\,dx = e^x$.",
+          "**Paso 4 — Aplica la fórmula.** $\\int u\\,dv = uv - \\int v\\,du$ → $\\int xe^x\\,dx = xe^x - \\int e^x\\,dx = xe^x - e^x + C = (x-1)e^x + C$.",
+        ],
         content: [
           "Usa LIATE para decidir qué función conviene derivar y cuál conviene integrar.",
           "Practica con productos como $x e^x$, $x \\ln x$ y $x \\sin x$.",

@@ -57,6 +57,7 @@ function createLessonSessionState(lesson) {
         completed: false,
         selectedChoice: null,
         solved: false,
+        walkthroughStep: 0,
       };
     }
 
@@ -895,6 +896,28 @@ function renderRecognitionBlockContent(block) {
   `;
 }
 
+function renderWalkthroughSteps(walkthrough, currentStep, blockIndex) {
+  const steps = Array.isArray(walkthrough) ? walkthrough : [walkthrough];
+  const visibleCount = Math.min(currentStep + 1, steps.length);
+  const hasMore = currentStep < steps.length - 1;
+
+  const stepsHTML = steps.slice(0, visibleCount).map((text, i) => `
+    <div class="walkthrough-step">
+      <span class="walkthrough-step-n">Paso ${i + 1}</span>
+      <div class="walkthrough-step-body">${formatRichText(text)}</div>
+    </div>`).join("");
+
+  const nextBtn = hasMore
+    ? `<button class="walkthrough-next-btn" type="button" data-guided-walkthrough-next="${blockIndex}">Siguiente paso →</button>`
+    : "";
+
+  return `<div class="guided-feedback-card is-walkthrough">
+    <div class="guided-feedback-kicker">Desarrollo guiado (${visibleCount}/${steps.length})</div>
+    <div class="walkthrough-steps">${stepsHTML}</div>
+    ${nextBtn}
+  </div>`;
+}
+
 function renderPracticeBlock(block, sessionState = {}, index, meta, viewState) {
   const feedbackState = getPracticeFeedbackState(sessionState);
   const content = Array.isArray(block.content) ? block.content : [];
@@ -942,7 +965,7 @@ function renderPracticeBlock(block, sessionState = {}, index, meta, viewState) {
           <div class="guided-choice-list">${choicesHTML}</div>
           ${sessionState.solved ? `<div class="guided-feedback-card is-correct">${formatRichText(block.correctMessage || "Correcto.")}</div>` : ""}
           ${(feedbackState === "hint" || feedbackState === "walkthrough") && block.hint ? `<div class="guided-feedback-card is-hint"><div class="guided-feedback-kicker">Pista</div>${formatRichText(block.hint)}</div>` : ""}
-          ${feedbackState === "walkthrough" && block.walkthrough ? `<div class="guided-feedback-card is-walkthrough"><div class="guided-feedback-kicker">Desarrollo guiado</div>${formatRichText(block.walkthrough)}</div>` : ""}
+          ${feedbackState === "walkthrough" && block.walkthrough ? renderWalkthroughSteps(block.walkthrough, sessionState.walkthroughStep ?? 0, index) : ""}
         </div>
       `}
     </section>`;
@@ -1242,58 +1265,81 @@ function openGraphOverlay() {
 /* ══════════════════════════════════════════════════════════════
    API — Generate lesson with IA (streaming)
 ══════════════════════════════════════════════════════════════ */
-const PROMPT = (lesson) => `Eres un tutor experto en Cálculo 2. Genera una mini-lección de 15-20 minutos.
+const PROMPT = (lesson) => `Eres un profesor experto de Cálculo II. Genera una lección guiada completa para:
+Lección: "${lesson.name}" (ID: ${lesson.id})
 
-Lección: ${lesson.name} (ID: ${lesson.id})
+Devuelve ÚNICAMENTE JSON válido. Sin markdown, sin texto antes ni después del JSON.
 
-IMPORTANTE: Usa notación LaTeX para todas las matemáticas:
-- Inline: $\\int x\\,dx$, $f'(x)$, $\\frac{d}{dx}$
-- Display: $$\\int_a^b f(x)\\,dx = F(b) - F(a)$$
+{
+  "objective": "1 oración con el objetivo de aprendizaje y la fórmula principal en LaTeX",
+  "intro": {
+    "summary": "Resumen del concepto central en 2-3 líneas",
+    "analogy": "Analogía del mundo real en 1-2 oraciones"
+  },
+  "blocks": [
+    {
+      "type": "concept",
+      "title": "Título corto del bloque",
+      "source": "intro",
+      "sourceRefs": ["intro"],
+      "content": ["Párrafo explicativo con $LaTeX$ inline...", "Segundo párrafo con la idea clave."]
+    },
+    {
+      "type": "practice",
+      "title": "Título del ejercicio",
+      "source": "concept",
+      "sourceRefs": ["concept"],
+      "prompt": "Enunciado claro del ejercicio con $LaTeX$",
+      "choices": [
+        {"id": "a", "text": "Primera opción con $LaTeX$"},
+        {"id": "b", "text": "Segunda opción"},
+        {"id": "c", "text": "Tercera opción"}
+      ],
+      "correctChoice": "a",
+      "correctMessage": "Explicación de por qué esa opción es correcta.",
+      "hint": "Pista útil para quien falló en el primer intento.",
+      "walkthrough": [
+        "**Paso 1 — [nombre del paso].** Explicación detallada con $LaTeX$.",
+        "**Paso 2 — [nombre del paso].** Continúa el razonamiento.",
+        "**Paso 3 — [nombre del paso].** Conclusión o resultado final."
+      ],
+      "content": []
+    },
+    {
+      "type": "application",
+      "title": "Ejemplo aplicado",
+      "source": "examples",
+      "sourceRefs": ["examples"],
+      "content": ["Descripción del ejemplo con $LaTeX$...", "Resultado: $...$"]
+    },
+    {
+      "type": "recognition",
+      "title": "Cuándo usar esta técnica",
+      "source": "summary",
+      "sourceRefs": ["summary"],
+      "content": ["Señal clave que indica cuándo aplicar este método.", "Error común a evitar.", "Resumen en una línea."]
+    }
+  ]
+}
 
-Responde EXACTAMENTE con estas secciones en orden:
+Reglas obligatorias:
+- Todo el texto en español
+- Todo el math en LaTeX: inline $...$ o display $$...$$
+- Entre 3 y 6 bloques en total
+- Al menos 1 bloque de tipo "practice" con walkthrough como array de pasos (mínimo 3 pasos)
+- Cada paso del walkthrough empieza con "**Paso N — nombre.**" y explica el razonamiento, no solo el resultado
+- JSON estrictamente válido: sin comentarios, sin trailing commas, sin texto fuera del objeto`;
 
-🎯 Objetivo
-[1 oración que incluya la fórmula o concepto principal en LaTeX]
-
-💡 Concepto
-[Explicación con analogía del mundo real. Usa $LaTeX$ en las ecuaciones. 2-3 párrafos.]
-
-🔑 Definiciones
-[Definiciones numeradas. Incluye LaTeX donde aplique.]
-
-📐 Fórmulas Clave
-[Fórmulas en display math $$...$$. Con nombre de cada una.]
-
-✏️ Ejemplos Resueltos
-[4 ejemplos con dificultad creciente. Cada paso en LaTeX.
-Formato:
-Ejemplo 1: [enunciado en LaTeX]
-Solución:
-1. [paso]
-2. [paso]
-→ [resultado final en LaTeX]]
-
-🏋️ Ejercicios de Práctica
-[6 ejercicios numerados. Enunciados en LaTeX inline $...$]
-
-✅ Soluciones
-[Soluciones numeradas, respuesta final en LaTeX]
-
-📝 Resumen
-[4-5 bullets comenzando con - ]
-
-🔢 Opción Múltiple
-[Exactamente 3 preguntas de opción múltiple. Usa ESTE FORMATO EXACTO para cada una:]
-PREGUNTA: [texto de la pregunta, LaTeX con $...$]
-A) [opción]
-B) [opción]
-C) [opción]
-D) [opción]
-CORRECTA: [A o B o C o D]
----
-[repetir para las 3 preguntas]
-
-Responde en español. Sé riguroso y didáctico.`;
+function processGeneratedLesson(fullText) {
+  try {
+    const data = JSON.parse(fullText.trim());
+    if (data && Array.isArray(data.blocks) && data.blocks.length > 0) {
+      renderGuidedLesson(data);
+      return;
+    }
+  } catch (_) {}
+  renderParsed(parseGeneratedLessonContent(fullText));
+}
 
 $btnGenerate?.addEventListener("click", async () => {
   if (!activeLesson || isGenerating) return;
@@ -1318,7 +1364,7 @@ $btnGenerate?.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
-        max_tokens: 3500,
+        max_tokens: 4500,
         stream: true,
         messages: [{ role: "user", content: PROMPT(activeLesson) }],
       }),
@@ -1342,7 +1388,7 @@ $btnGenerate?.addEventListener("click", async () => {
           const p = JSON.parse(line.slice(6));
           if (p.delta?.text) {
             fullText += p.delta.text;
-            $streamText.textContent = fullText;
+            $streamText.textContent = "Construyendo lección…";
             progress = Math.min(90, progress + 0.4);
             $progressFill.style.width = progress + "%";
           }
@@ -1359,7 +1405,7 @@ $btnGenerate?.addEventListener("click", async () => {
     setTimeout(() => {
       $heroProgress.style.display = "none";
       $streamPreview.style.display = "none";
-      renderParsed(parseGeneratedLessonContent(fullText));
+      processGeneratedLesson(fullText);
       renderLearningPathPanel();
       $btnCopy.style.display = "flex";
       $btnMastered.style.display = "flex";
@@ -1414,6 +1460,17 @@ if (IS_BROWSER) {
     const continueButton = event.target.closest("[data-guided-continue]");
     if (continueButton) {
       handleGuidedContinue(Number(continueButton.dataset.guidedContinue));
+      return;
+    }
+
+    const walkthroughNextBtn = event.target.closest("[data-guided-walkthrough-next]");
+    if (walkthroughNextBtn) {
+      const idx = Number(walkthroughNextBtn.dataset.guidedWalkthroughNext);
+      if (lessonSession?.[idx]) {
+        lessonSession[idx].walkthroughStep = (lessonSession[idx].walkthroughStep ?? 0) + 1;
+        const lesson = activeLesson ? PRELOADED_DATA[activeLesson.id] : null;
+        if (lesson) renderGuidedLesson(lesson);
+      }
       return;
     }
 

@@ -85,8 +85,11 @@ test("preloaded guided lessons expose teaching blocks with practice metadata", (
     assert.ok(practiceBlock.correctMessage.length > 0);
     assert.equal(typeof practiceBlock.hint, "string");
     assert.ok(practiceBlock.hint.length > 0);
-    assert.equal(typeof practiceBlock.walkthrough, "string");
-    assert.ok(practiceBlock.walkthrough.length > 0);
+    const wt = practiceBlock.walkthrough;
+    assert.ok(typeof wt === "string" || (Array.isArray(wt) && wt.length > 0), "walkthrough debe ser string o array no vacío");
+    if (Array.isArray(wt)) {
+      assert.ok(wt.every(step => typeof step === "string" && step.length > 0), "cada paso del walkthrough debe ser un string no vacío");
+    }
 
     for (const block of lesson.blocks) {
       assert.match(block.type, /^(concept|practice|application|recognition)$/);
@@ -127,10 +130,10 @@ test("guided lesson session state derives defaults from mixed block types", () =
   const session = createLessonSessionState(lesson);
 
   assert.deepEqual(session, [
-    { attempts: 0, completed: false, selectedChoice: null, solved: false },
+    { attempts: 0, completed: false, selectedChoice: null, solved: false, walkthroughStep: 0 },
     { completed: false },
     { completed: false },
-    { attempts: 0, completed: false, selectedChoice: null, solved: false },
+    { attempts: 0, completed: false, selectedChoice: null, solved: false, walkthroughStep: 0 },
     { completed: false },
   ]);
 
@@ -142,6 +145,7 @@ test("guided lesson session state derives defaults from mixed block types", () =
     completed: false,
     selectedChoice: null,
     solved: false,
+    walkthroughStep: 0,
   });
 });
 
