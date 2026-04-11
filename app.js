@@ -31,6 +31,7 @@ const SECTION_META = {
 };
 
 const SECTION_HEADERS = Object.keys(SECTION_META);
+const LETTERS = ["A", "B", "C", "D"];
 
 /* ── State ──────────────────────────────────────────────────── */
 let activeLesson = null;
@@ -950,10 +951,6 @@ function renderPracticeBlock(block, sessionState = {}, index, meta, viewState) {
 /* ══════════════════════════════════════════════════════════════
    RENDER — Parsed sections from raw AI text
 ══════════════════════════════════════════════════════════════ */
-function parseSections(text) {
-  return parseGeneratedLessonContent(text).sections;
-}
-
 function renderParsed(parsedLesson) {
   const parsedModel = Array.isArray(parsedLesson)
     ? { rawText: generatedCache[activeLesson?.id] || "", sections: parsedLesson }
@@ -1433,7 +1430,6 @@ if (IS_BROWSER) {
 function parseMCQSection(content) {
   const questions = [];
   let current = null;
-  const LETTERS = ["A", "B", "C", "D"];
   for (const rawLine of content.split("\n")) {
     const line = rawLine.trim();
     if (line.startsWith("PREGUNTA:")) {
@@ -1475,7 +1471,6 @@ function renderMCQ(mcqArray, parentEl) {
 
     const optionsEl = document.createElement("div");
     optionsEl.className = "mcq-options";
-    const LETTERS = ["A", "B", "C", "D"];
 
     q.options.forEach((opt, oi) => {
       const btn = document.createElement("button");
@@ -1515,7 +1510,6 @@ function handleMCQSelect(itemEl, chosen, correct) {
   itemEl.classList.add("answered");
   const options = itemEl.querySelectorAll(".mcq-option");
   const feedback = itemEl.querySelector(".mcq-feedback");
-  const LETTERS = ["A", "B", "C", "D"];
 
   if (chosen === correct) {
     options[chosen].classList.add("correct");

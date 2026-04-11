@@ -27,7 +27,7 @@ No build step, no framework, no dependencies to install. Four files:
 ## Two render paths
 
 1. **Preloaded** (`renderPreloaded`): structured JS objects in `PRELOADED` → rendered directly into typed HTML sections.
-2. **AI-generated** (`renderParsed` + `parseSections`): raw text from Claude streaming → split on section emoji-headers defined in `SECTION_HEADERS` → rendered per section type.
+2. **AI-generated** (`renderParsed` + `parseGeneratedLessonContent`): raw text from Claude streaming → split on section emoji-headers defined in `SECTION_HEADERS` → rendered per section type.
 
 ## Adding pre-loaded lessons
 
